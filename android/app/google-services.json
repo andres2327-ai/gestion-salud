@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "830705956189",
+    "project_id": "gestion-salud-b1e02",
+    "storage_bucket": "gestion-salud-b1e02.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:830705956189:android:37ba06cca5e0ae10d2e4b4",
+        "android_client_info": {
+          "package_name": "com.example.gestion_salud"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDv41V7VfmJwMF3UZXEk1b9GecJUrSpnfw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
