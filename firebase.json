@@ -1,0 +1,28 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "gestion-salud-b1e02",
+          "appId": "1:830705956189:android:37ba06cca5e0ae10d2e4b4",
+          "fileOutput": "android/app/google-services.json"
+        }
+      }
+    },
+    "dart": {
+      "lib/firebase_options.dart": {
+        "projectId": "gestion-salud-b1e02",
+        "configurations": {
+          "android": "1:830705956189:android:37ba06cca5e0ae10d2e4b4",
+          "ios": "1:830705956189:ios:66cff0f5bc7f87fbd2e4b4",
+          "macos": "1:830705956189:ios:66cff0f5bc7f87fbd2e4b4",
+          "web": "1:830705956189:web:84ffbde5945fc6acd2e4b4",
+          "windows": "1:830705956189:web:7226c576ff908b9ad2e4b4"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
