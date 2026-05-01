@@ -1,9 +1,9 @@
-// ui/view_producto.dart
+﻿// ui/view_producto.dart
 
 import 'package:flutter/material.dart';
+import '../core/theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/theme/app_theme.dart';
 import '../models/producto_model.dart';
 import '../providers.dart';
 import './custom_text_field.dart';
@@ -96,7 +96,6 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Gestión de Producto'),
         leading: IconButton(

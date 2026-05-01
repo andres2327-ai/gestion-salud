@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers.dart';
-import '../core/theme/app_theme.dart';
 import '../models/producto_model.dart';
 import './product_card.dart';
 import './view_producto.dart';
@@ -25,9 +24,9 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ ProductoState expone List<ProductoModel> + bool cargando + String? error
-    // NO es un AsyncValue — el .when() del código original era incorrecto
     final state = ref.watch(productoControllerProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     final productos = _query.isEmpty
         ? state.productos
@@ -40,9 +39,6 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
             .toList();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-
-      // 🔹 FAB
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -52,32 +48,32 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
         },
         child: const Icon(Icons.add),
       ),
-
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🔹 Título + botón filtro
+              // Título + botón filtro
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Inventario',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 22,
+                    style: textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Container(
                     decoration: BoxDecoration(
-                      color: AppColors.accentGlow,
+                      color: colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.filter_list, color: AppColors.accent),
+                      icon: Icon(
+                        Icons.filter_list,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
                       onPressed: () {},
                     ),
                   ),
@@ -86,48 +82,36 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
 
               const SizedBox(height: 16),
 
-              // 🔍 Buscador con botón limpiar
+              // Buscador
               TextField(
                 controller: _searchCtrl,
                 onChanged: (v) => setState(() => _query = v),
-                style: const TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Buscar producto...',
-                  hintStyle: const TextStyle(color: AppColors.textHint),
-                  prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
+                  prefixIcon: const Icon(Icons.search),
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear,
-                              color: AppColors.textHint, size: 18),
+                          icon: const Icon(Icons.clear, size: 18),
                           onPressed: () {
                             _searchCtrl.clear();
                             setState(() => _query = '');
                           },
                         )
                       : null,
-                  filled: true,
-                  fillColor: AppColors.inputFill,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.inputBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.inputBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                        color: AppColors.accent, width: 1.5),
-                  ),
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              // 📋 Cuerpo principal
               Expanded(
-                child: _buildBody(state.cargando, state.error, productos),
+                child: _buildBody(
+                  context,
+                  state.cargando,
+                  state.error,
+                  productos,
+                  colorScheme,
+                  textTheme,
+                ),
               ),
             ],
           ),
@@ -137,38 +121,35 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
   }
 
   Widget _buildBody(
+    BuildContext context,
     bool cargando,
     String? error,
     List<ProductoModel> productos,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
   ) {
-    // 1. Spinner inicial (sin datos todavía)
     if (cargando && productos.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.accent),
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
 
-    // 2. Error sin datos
     if (error != null && productos.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+            Icon(Icons.error_outline, color: colorScheme.error, size: 48),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Error al cargar inventario',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
+              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               error,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 13),
+              style: textTheme.bodySmall,
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
@@ -182,44 +163,46 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
       );
     }
 
-    // 3. Sin resultados para la búsqueda activa
     if (productos.isEmpty && _query.isNotEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.search_off_rounded,
-                color: AppColors.textHint, size: 48),
+            Icon(
+              Icons.search_off_rounded,
+              color: colorScheme.onSurfaceVariant,
+              size: 48,
+            ),
             const SizedBox(height: 16),
             Text(
               'Sin resultados para "$_query"',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: textTheme.bodyMedium,
             ),
           ],
         ),
       );
     }
 
-    // 4. Inventario vacío (cero productos en Firebase)
     if (productos.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inventory_2_outlined,
-                color: AppColors.accent, size: 48),
+            Icon(
+              Icons.inventory_2_outlined,
+              color: colorScheme.primary,
+              size: 48,
+            ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No hay productos en inventario',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
+              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Toca el botón + para agregar tu primer producto',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              style: textTheme.bodySmall,
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
@@ -235,10 +218,8 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
       );
     }
 
-    // 5. Lista normal ✅
     return RefreshIndicator(
-      color: AppColors.accent,
-      backgroundColor: AppColors.card,
+      color: colorScheme.primary,
       onRefresh: () =>
           ref.read(productoControllerProvider.notifier).cargar(),
       child: ListView.builder(

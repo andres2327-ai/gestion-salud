@@ -8,6 +8,7 @@ import 'package:gestion_salud/firebase_options.dart';
 import 'package:gestion_salud/ui/login.dart';
 import 'package:gestion_salud/ui/main_screen.dart';
 import 'package:gestion_salud/services/storage_service.dart';
+import 'package:gestion_salud/core/theme/app_theme.dart';
 import 'providers.dart';
 
 void main() async {
@@ -38,38 +39,8 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Quiero Salud',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF057661),
-          brightness: Brightness.light,
-        ),
-        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            elevation: 2,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF057661),
-          brightness: Brightness.dark,
-        ),
-        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
-      ),
+      theme: AppColors.lightTheme,
+      darkTheme: AppColors.darkTheme,
       themeMode: ThemeMode.system,
       home: const RootRoute(),
     );
@@ -94,32 +65,30 @@ class RootRoute extends ConsumerWidget {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF033F3F),
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                child: const Center(
-                  child: Icon(
-                    Icons.medical_services_outlined,
-                    size: 40,
-                    color: Colors.white,
-                  ),
+                child: Icon(
+                  Icons.medical_services_outlined,
+                  size: 40,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
               ),
               const SizedBox(height: 24),
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF057661)),
+              CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(height: 16),
               Text(
                 'Cargando...',
-                style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
           ),

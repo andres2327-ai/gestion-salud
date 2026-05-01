@@ -13,36 +13,33 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardState = ref.watch(dashboardControllerProvider);
     final stats = dashboardState.stats;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1C3A),
-        title: const Text('Dashboard', style: TextStyle(color: Colors.white)),
-        elevation: 0,
+        title: const Text('Dashboard'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.tealAccent),
+            icon: Icon(Icons.refresh, color: colorScheme.primary),
             onPressed: () =>
                 ref.read(dashboardControllerProvider.notifier).refrescar(),
           ),
         ],
       ),
       body: dashboardState.cargando && stats == null
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.tealAccent),
-            )
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : dashboardState.error != null
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  Icon(Icons.error_outline, color: colorScheme.error, size: 48),
                   const SizedBox(height: 16),
                   Text(
                     dashboardState.error!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
+                    style: textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
@@ -64,7 +61,7 @@ class DashboardScreen extends ConsumerWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('✅ Datos inicializados'),
+                                content: Text('Datos inicializados'),
                               ),
                             );
                           }
@@ -76,7 +73,7 @@ class DashboardScreen extends ConsumerWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Error: $e'),
-                                backgroundColor: Colors.red,
+                                backgroundColor: colorScheme.error,
                               ),
                             );
                           }
@@ -90,7 +87,7 @@ class DashboardScreen extends ConsumerWidget {
           : RefreshIndicator(
               onRefresh: () =>
                   ref.read(dashboardControllerProvider.notifier).refrescar(),
-              color: Colors.tealAccent,
+              color: colorScheme.primary,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
@@ -98,29 +95,20 @@ class DashboardScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 📊 Título
-                      const Text(
+                      Text(
                         'Resumen del Día',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
+                        style: textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        DateFormat(
-                          'EEEE, d MMMM yyyy',
-                          'es_ES',
-                        ).format(DateTime.now()),
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
+                        DateFormat('EEEE, d MMMM yyyy', 'es_ES')
+                            .format(DateTime.now()),
+                        style: textTheme.bodySmall,
                       ),
                       const SizedBox(height: 24),
 
-                      // 📈 Estadísticas principales
                       GridView.count(
                         crossAxisCount: 2,
                         crossAxisSpacing: 16,
@@ -171,29 +159,23 @@ class DashboardScreen extends ConsumerWidget {
 
                       const SizedBox(height: 32),
 
-                      // 📝 Actividad Reciente
-                      const Text(
+                      Text(
                         'Actividad Reciente',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: textTheme.titleLarge,
                       ),
                       const SizedBox(height: 16),
 
-                      // 🎯 Lista de actividades
                       if (stats?.actividadReciente.isEmpty ?? true)
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A1C3A),
+                            color: Theme.of(context).cardTheme.color,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Text(
                               'No hay actividad reciente',
-                              style: TextStyle(color: Colors.grey),
+                              style: textTheme.bodyMedium,
                             ),
                           ),
                         )
@@ -201,9 +183,10 @@ class DashboardScreen extends ConsumerWidget {
                         ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: (stats?.actividadReciente.length ?? 0),
-                          separatorBuilder: (_, __) =>
-                              const Divider(color: Color(0xFF2A2C4A)),
+                          itemCount: stats?.actividadReciente.length ?? 0,
+                          separatorBuilder: (_, _) => Divider(
+                            color: colorScheme.outlineVariant,
+                          ),
                           itemBuilder: (context, index) {
                             final actividad =
                                 stats?.actividadReciente[index] ?? {};
@@ -220,7 +203,7 @@ class DashboardScreen extends ConsumerWidget {
                                 horizontal: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1A1C3A),
+                                color: Theme.of(context).cardTheme.color,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -235,18 +218,14 @@ class DashboardScreen extends ConsumerWidget {
                                         Text(
                                           actividad['descripcion'] ??
                                               'Sin descripción',
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: textTheme.bodyLarge?.copyWith(
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           '${actividad['asesora'] ?? 'Sin asesora'} • ${fecha != null ? DateFormat('HH:mm', 'es_ES').format(fecha) : 'Sin hora'}',
-                                          style: const TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 12,
-                                          ),
+                                          style: textTheme.bodySmall,
                                         ),
                                       ],
                                     ),
@@ -255,10 +234,9 @@ class DashboardScreen extends ConsumerWidget {
                                   Text(
                                     FormatoHelper.formatearMontoCompleto(
                                         (actividad['monto'] ?? 0).toDouble()),
-                                    style: const TextStyle(
-                                      color: Colors.tealAccent,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.primary,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 14,
                                     ),
                                   ),
                                 ],

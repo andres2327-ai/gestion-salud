@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -258,9 +258,7 @@ class _CobradorTarjetaDetalleScreenState
     final esActiva = tarjeta.estado == EstadoTarjeta.activa;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1C3A),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),

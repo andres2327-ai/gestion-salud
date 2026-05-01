@@ -1,11 +1,5 @@
-// widgets/sale_product_card.dart
-// Card que representa un producto dentro del carrito de la nueva venta
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../core/theme/app_theme.dart';
 
-// Modelo simple para producto en venta
 class ProductoVentaItem {
   final String codigoBarras;
   final String nombre;
@@ -50,43 +44,46 @@ class SaleProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: AppColors.cardElevated,
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.divider),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            // ── Ícono producto ──────────────────────────────────────────
+            // Ícono producto
             Container(
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: AppColors.accentGlow,
+                color: colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.medication_rounded,
-                color: AppColors.accent,
+                color: colorScheme.onPrimaryContainer,
                 size: 20,
               ),
             ),
             const SizedBox(width: 12),
 
-            // ── Nombre y precio ─────────────────────────────────────────
+            // Nombre y precio
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     producto.nombre,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 13,
+                    style: textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
@@ -95,30 +92,24 @@ class SaleProductCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '\$${producto.precioVenta.toStringAsFixed(0)}  ×  ${producto.cantidad}',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
+                    style: textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
 
-            // ── Subtotal ────────────────────────────────────────────────
+            // Subtotal y controles
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   '\$${producto.subtotal.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    color: AppColors.accent,
-                    fontSize: 14,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 6),
-
-                // ── Controles cantidad ──────────────────────────────────
                 Row(
                   children: [
                     _QtyButton(
@@ -133,9 +124,7 @@ class SaleProductCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Text(
                         '${producto.cantidad}',
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 13,
+                        style: textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -147,9 +136,9 @@ class SaleProductCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: onRemove,
-                      child: const Icon(
+                      child: Icon(
                         Icons.delete_outline_rounded,
-                        color: AppColors.error,
+                        color: colorScheme.error,
                         size: 18,
                       ),
                     ),
@@ -172,17 +161,19 @@ class _QtyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 26,
         height: 26,
         decoration: BoxDecoration(
-          color: AppColors.inputFill,
+          color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: AppColors.inputBorder),
+          border: Border.all(color: colorScheme.outline),
         ),
-        child: Icon(icon, size: 14, color: AppColors.textSecondary),
+        child: Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
       ),
     );
   }

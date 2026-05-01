@@ -23,9 +23,8 @@ class _LoginState extends ConsumerState<Login> {
   }
 
   void _handleLogin() async {
-    // Limpiar cualquier error anterior
     ref.read(authControllerProvider.notifier).clearError();
-    
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -60,6 +59,7 @@ class _LoginState extends ConsumerState<Login> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return SafeArea(
       child: Center(
@@ -72,48 +72,49 @@ class _LoginState extends ConsumerState<Login> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Logo
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF033F3F),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                Center(
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.primary.withValues(alpha: 0.25),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.medical_services_outlined,
+                        size: 50,
+                        color: colorScheme.onPrimaryContainer,
                       ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.medical_services_outlined,
-                      size: 50,
-                      color: Colors.white,
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
+
                 // Titulo
                 Text(
                   'Quiero Salud',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF033F3F),
+                    color: colorScheme.primary,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Gestion de Productos Farmaceuticos',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: theme.textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
-                
+
                 // Campo de email
                 TextFormField(
                   controller: _emailController,
@@ -121,27 +122,14 @@ class _LoginState extends ConsumerState<Login> {
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   validator: _validateEmail,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Correo electronico',
                     hintText: 'ejemplo@correo.com',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF057661), width: 2),
-                    ),
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    filled: true,
-                    fillColor: Colors.grey[50],
+                    prefixIcon: Icon(Icons.email_outlined),
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Campo de password
                 TextFormField(
                   controller: _passwordController,
@@ -152,26 +140,12 @@ class _LoginState extends ConsumerState<Login> {
                   onFieldSubmitted: (_) => _handleLogin(),
                   decoration: InputDecoration(
                     labelText: 'Contrasena',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF057661), width: 2),
-                    ),
                     prefixIcon: const Icon(Icons.lock_outline),
-                    filled: true,
-                    fillColor: Colors.grey[50],
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: Colors.grey[600],
                       ),
                       onPressed: () {
                         setState(() {
@@ -182,72 +156,61 @@ class _LoginState extends ConsumerState<Login> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Mensaje de error
                 if (authState.error != null)
                   Container(
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      border: Border.all(color: Colors.red[300]!),
+                      color: colorScheme.errorContainer,
+                      border: Border.all(color: colorScheme.error),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.error_outline, color: Colors.red[700], size: 20),
+                        Icon(
+                          Icons.error_outline,
+                          color: colorScheme.onErrorContainer,
+                          size: 20,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             authState.error!,
-                            style: TextStyle(color: Colors.red[700], fontSize: 14),
+                            style: TextStyle(
+                              color: colorScheme.onErrorContainer,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                
+
                 // Boton de login
                 SizedBox(
                   height: 52,
                   child: ElevatedButton(
                     onPressed: authState.cargando ? null : _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF057661),
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: const Color(0xFF057661).withOpacity(0.6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 2,
-                    ),
                     child: authState.cargando
                         ? const SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Iniciar Sesion',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                        : const Text('Iniciar Sesion'),
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Footer
                 Text(
                   'Sistema de gestion farmaceutica',
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 12,
-                  ),
+                  style: theme.textTheme.bodySmall,
                   textAlign: TextAlign.center,
                 ),
               ],

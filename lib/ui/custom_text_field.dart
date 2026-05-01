@@ -1,21 +1,16 @@
-// widgets/custom_text_field.dart
-// Versión unificada: combina el estilo dark del UI original
-// con las funcionalidades extra del forms (obscureText toggle, minLines)
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../core/theme/app_theme.dart';
 
 class CustomTextField extends StatefulWidget {
   final String label;
-  final String? hintText;           // alias compatible con forms
-  final String? hint;               // alias compatible con ui original
+  final String? hintText;
+  final String? hint;
   final TextEditingController? controller;
   final String? Function(String?)? validator;
   final TextInputType keyboardType;
   final bool obscureText;
-  final IconData? prefixIcon;       // acepta IconData (forms)
-  final Widget? prefixIconWidget;   // acepta Widget (ui original)
+  final IconData? prefixIcon;
+  final Widget? prefixIconWidget;
   final Widget? suffixIcon;
   final int maxLines;
   final int minLines;
@@ -59,21 +54,23 @@ class _CustomTextFieldState extends State<CustomTextField> {
     _obscure = widget.obscureText;
   }
 
-  Widget? get _resolvedPrefixIcon {
+  Widget? _resolvedPrefixIcon(ColorScheme cs) {
     if (widget.prefixIconWidget != null) {
       return IconTheme(
-        data: const IconThemeData(color: AppColors.textHint, size: 18),
+        data: IconThemeData(color: cs.onSurfaceVariant, size: 18),
         child: widget.prefixIconWidget!,
       );
     }
     if (widget.prefixIcon != null) {
-      return Icon(widget.prefixIcon, color: AppColors.textHint, size: 18);
+      return Icon(widget.prefixIcon, color: cs.onSurfaceVariant, size: 18);
     }
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final hintText = widget.hintText ?? widget.hint;
 
     return Column(
@@ -81,9 +78,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       children: [
         Text(
           widget.label,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
+          style: textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.w600,
             letterSpacing: 0.8,
           ),
@@ -101,19 +96,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
           onChanged: widget.onChanged,
           inputFormatters: widget.inputFormatters,
           focusNode: widget.focusNode,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
           decoration: InputDecoration(
             hintText: hintText,
-            prefixIcon: _resolvedPrefixIcon,
+            prefixIcon: _resolvedPrefixIcon(colorScheme),
             suffixIcon: widget.obscureText
                 ? IconButton(
                     icon: Icon(
                       _obscure ? Icons.visibility_off : Icons.visibility,
-                      color: AppColors.textHint,
+                      color: colorScheme.onSurfaceVariant,
                       size: 18,
                     ),
                     onPressed: () => setState(() => _obscure = !_obscure),
@@ -147,38 +137,26 @@ class CustomDropdownField<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
+          style: textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.w600,
             letterSpacing: 0.8,
           ),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<T>(
-          value: value,
+          initialValue: value,
           items: items,
           onChanged: onChanged,
           validator: validator,
-          dropdownColor: AppColors.cardElevated,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: AppColors.textSecondary,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 14),
-          ),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          decoration: InputDecoration(hintText: hint),
         ),
       ],
     );

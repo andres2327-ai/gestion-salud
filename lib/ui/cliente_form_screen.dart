@@ -1,12 +1,9 @@
-// ui/forms/cliente_form_screen.dart
-// Formulario de cliente del forms, adaptado al tema dark del proyecto
-
 import 'package:flutter/material.dart';
-import '../core/theme/app_theme.dart';
-
 import 'custom_text_field.dart';
 
 class ClienteFormScreen extends StatefulWidget {
+  const ClienteFormScreen({super.key});
+
   @override
   State<ClienteFormScreen> createState() => _ClienteFormScreenState();
 }
@@ -20,33 +17,26 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
   late TextEditingController _empresaCtrl;
   late TextEditingController _direccionCtrl;
   late TextEditingController _ciudadCtrl;
-  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _nombreCtrl = TextEditingController();
+    _apellidoCtrl = TextEditingController();
+    _emailCtrl = TextEditingController();
+    _telefonoCtrl = TextEditingController();
+    _empresaCtrl = TextEditingController();
+    _direccionCtrl = TextEditingController();
+    _ciudadCtrl = TextEditingController();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 16,
-              color: AppColors.textPrimary,
-            ),
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
         ),
       ),
       body: Form(
@@ -127,8 +117,6 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
               prefixIcon: Icons.location_city_outlined,
             ),
             const SizedBox(height: 32),
-
-            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -148,7 +136,6 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
   }
 }
 
-// ── Widgets locales ──────────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -156,83 +143,26 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Row(
       children: [
-        Icon(icon, color: AppColors.accent, size: 16),
+        Icon(icon, color: colorScheme.primary, size: 16),
         const SizedBox(width: 8),
         Text(
           title.toUpperCase(),
-          style: const TextStyle(
-            color: AppColors.accent,
-            fontSize: 11,
+          style: textTheme.labelSmall?.copyWith(
+            color: colorScheme.primary,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(child: Container(height: 1, color: AppColors.divider)),
+        Expanded(
+          child: Divider(color: colorScheme.outlineVariant),
+        ),
       ],
-    );
-  }
-}
-
-class _SubmitButton extends StatelessWidget {
-  final String label;
-  final bool isLoading;
-  final VoidCallback onTap;
-  const _SubmitButton({
-    required this.label,
-    required this.isLoading,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: isLoading ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: isLoading
-              ? null
-              : const LinearGradient(
-                  colors: [AppColors.accent, AppColors.accentDark],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-          color: isLoading ? AppColors.card : null,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isLoading
-              ? null
-              : const [
-                  BoxShadow(
-                    color: AppColors.accentGlow,
-                    blurRadius: 20,
-                    offset: Offset(0, 6),
-                  ),
-                ],
-        ),
-        child: Center(
-          child: isLoading
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: AppColors.accent,
-                  ),
-                )
-              : Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.background,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-        ),
-      ),
     );
   }
 }

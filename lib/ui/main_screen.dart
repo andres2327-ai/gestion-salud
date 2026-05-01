@@ -65,7 +65,6 @@ class _AdminNav extends StatelessWidget {
       const ReportesScreen(),
     ];
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       body: screens[selectedIndex],
       bottomNavigationBar: _BottomNav(
         currentIndex: selectedIndex,
@@ -110,7 +109,6 @@ class _AsesoraNav extends StatelessWidget {
       const AsesoraPerfilScreen(),
     ];
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       body: screens[selectedIndex],
       bottomNavigationBar: _BottomNav(
         currentIndex: selectedIndex,
@@ -149,7 +147,6 @@ class _CobradorNav extends StatelessWidget {
       const CobradorPerfilScreen(),
     ];
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       body: screens[selectedIndex],
       bottomNavigationBar: _BottomNav(
         currentIndex: selectedIndex,
@@ -184,11 +181,7 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BottomNavigationBar(
-      backgroundColor: const Color(0xFF1A1C3A),
-      selectedItemColor: Colors.tealAccent,
-      unselectedItemColor: Colors.grey,
       currentIndex: currentIndex,
-      type: BottomNavigationBarType.fixed,
       onTap: onTap,
       items: items,
     );

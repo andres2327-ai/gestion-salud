@@ -1,12 +1,7 @@
-// widgets/product_card.dart
-// ProductoCard (inventario) con el diseño dark del original
-// + ProductCard (catálogo) del forms — en un solo archivo
-
 import 'package:flutter/material.dart';
-import '../core/theme/app_theme.dart';
 import '../models/producto_model.dart';
 
-// ── Card para la pantalla de Inventario (estilo mockup dark) ─────────────────
+// ── Card para la pantalla de Inventario ───────────────────────────────────────
 class ProductoCard extends StatelessWidget {
   final String nombre;
   final String tipo;
@@ -21,35 +16,41 @@ class ProductoCard extends StatelessWidget {
     this.onTap,
   });
 
-  Color get _stockColor {
-    if (cantidad <= 0) return AppColors.error;
-    if (cantidad < 10) return AppColors.warning;
-    return AppColors.accent;
+  Color _stockColor(ColorScheme cs) {
+    if (cantidad <= 0) return cs.error;
+    if (cantidad < 10) return Colors.orange;
+    return cs.primary;
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+    final stockColor = _stockColor(colorScheme);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: colorScheme.outlineVariant),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.accentGlow,
+                color: colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.medication_rounded,
-                color: AppColors.accent,
+                color: colorScheme.onPrimaryContainer,
               ),
             ),
             const SizedBox(width: 12),
@@ -59,20 +60,12 @@ class ProductoCard extends StatelessWidget {
                 children: [
                   Text(
                     nombre,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
-                      fontSize: 14,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    tipo,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
+                  Text(tipo, style: textTheme.bodySmall),
                 ],
               ),
             ),
@@ -82,18 +75,12 @@ class ProductoCard extends StatelessWidget {
                 Text(
                   '$cantidad',
                   style: TextStyle(
-                    color: _stockColor,
+                    color: stockColor,
                     fontWeight: FontWeight.w800,
                     fontSize: 18,
                   ),
                 ),
-                Text(
-                  'uds',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
+                Text('uds', style: textTheme.bodySmall),
               ],
             ),
           ],
@@ -103,7 +90,7 @@ class ProductoCard extends StatelessWidget {
   }
 }
 
-// ── Card para la pantalla de Catálogo/Productos (grid, del forms) ────────────
+// ── Card para la pantalla de Catálogo/Productos (grid) ────────────────────────
 class ProductCard extends StatelessWidget {
   final ProductoModel producto;
   final VoidCallback? onTap;
@@ -121,37 +108,40 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: colorScheme.outlineVariant),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Imagen / ícono
             Expanded(
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: AppColors.accentGlow,
+                  color: colorScheme.primaryContainer,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(14),
                   ),
                 ),
-                child: const Center(
+                child: Center(
                   child: Icon(
                     Icons.medication_rounded,
-                    color: AppColors.accent,
+                    color: colorScheme.onPrimaryContainer,
                     size: 36,
                   ),
                 ),
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
@@ -161,39 +151,30 @@ class ProductCard extends StatelessWidget {
                     producto.nombre,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    producto.tipo.name,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                    ),
-                  ),
+                  Text(producto.tipo.name, style: textTheme.bodySmall),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         '\$${producto.precioUnitario.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          color: AppColors.accent,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.primary,
                           fontWeight: FontWeight.w700,
-                          fontSize: 13,
                         ),
                       ),
                       if (_stockBajo && _disponible)
-                        _StockBadge(
-                          label: 'Stock bajo',
-                          color: AppColors.warning,
-                        ),
+                        _StockBadge(label: 'Stock bajo', color: Colors.orange),
                       if (!_disponible)
-                        _StockBadge(label: 'Sin stock', color: AppColors.error),
+                        _StockBadge(
+                          label: 'Sin stock',
+                          color: colorScheme.error,
+                        ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -237,7 +218,7 @@ class _StockBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

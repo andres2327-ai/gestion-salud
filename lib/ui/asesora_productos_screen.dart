@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers.dart';
 
@@ -30,9 +30,7 @@ class _AsesoraProductosScreenState
     final asigState = ref.watch(asignacionProductoControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1C3A),
         title: const Text(
           'Mis Productos Asignados',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),

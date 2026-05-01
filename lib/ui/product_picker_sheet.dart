@@ -1,12 +1,5 @@
-// widgets/product_picker_sheet.dart
-// BottomSheet para buscar y seleccionar un producto del inventario
-// En producción recibirá la lista real desde Firestore
-
 import 'package:flutter/material.dart';
-import '../core/theme/app_theme.dart';
-//import '../models/sale_model.dart';
 
-// ── Producto simulado del inventario ────────────────────────────────────────
 class ProductoInventario {
   final String codigoBarras;
   final String nombre;
@@ -23,7 +16,6 @@ class ProductoInventario {
   });
 }
 
-// ── Mock data (reemplazar con llamada a Firestore) ───────────────────────────
 final List<ProductoInventario> mockProductos = [
   ProductoInventario(codigoBarras: '7001', nombre: 'Amoxicilina 500mg x 10', tipo: 'pastillas', precioUnitario: 18500, cantidadStock: 80),
   ProductoInventario(codigoBarras: '7002', nombre: 'Ibuprofeno 400mg x 20', tipo: 'pastillas', precioUnitario: 12000, cantidadStock: 120),
@@ -36,7 +28,7 @@ final List<ProductoInventario> mockProductos = [
 
 class ProductPickerSheet extends StatefulWidget {
   final void Function(ProductoInventario producto) onProductoSeleccionado;
-  final List<String> codigosYaAgregados; // evita duplicados
+  final List<String> codigosYaAgregados;
 
   const ProductPickerSheet({
     super.key,
@@ -77,81 +69,60 @@ class _ProductPickerSheetState extends State<ProductPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
-          // ── Handle ───────────────────────────────────────────────────
           const SizedBox(height: 12),
           Container(
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.inputBorder,
+              color: colorScheme.outline,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(height: 20),
 
-          // ── Título ───────────────────────────────────────────────────
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
                 Text(
                   'Agregar Producto',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: textTheme.titleLarge,
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
 
-          // ── Buscador ─────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: TextField(
               controller: _searchCtrl,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Buscar por nombre o código...',
-                hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: AppColors.textHint, size: 18),
-                filled: true,
-                fillColor: AppColors.inputFill,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.inputBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.inputBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                prefixIcon: Icon(Icons.search_rounded, size: 18),
               ),
             ),
           ),
           const SizedBox(height: 12),
 
-          // ── Lista ─────────────────────────────────────────────────────
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               itemCount: _filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final p = _filtered[i];
                 final yaAgregado =
@@ -201,6 +172,9 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedOpacity(
@@ -209,13 +183,9 @@ class _ProductTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: AppColors.cardElevated,
+            color: colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: yaAgregado
-                  ? AppColors.divider
-                  : AppColors.inputBorder,
-            ),
+            border: Border.all(color: colorScheme.outlineVariant),
           ),
           child: Row(
             children: [
@@ -223,11 +193,14 @@ class _ProductTile extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: AppColors.accentGlow,
+                  color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: Icon(_tipoIcon,
-                    color: AppColors.accent, size: 18),
+                child: Icon(
+                  _tipoIcon,
+                  color: colorScheme.onPrimaryContainer,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -236,19 +209,14 @@ class _ProductTile extends StatelessWidget {
                   children: [
                     Text(
                       producto.nombre,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 13,
+                      style: textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Stock: ${producto.cantidadStock}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                      ),
+                      style: textTheme.bodySmall,
                     ),
                   ],
                 ),
@@ -258,19 +226,15 @@ class _ProductTile extends StatelessWidget {
                 children: [
                   Text(
                     '\$${producto.precioUnitario.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      color: AppColors.accent,
-                      fontSize: 13,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   if (yaAgregado)
-                    const Text(
+                    Text(
                       'Agregado',
-                      style: TextStyle(
-                        color: AppColors.textHint,
-                        fontSize: 10,
-                      ),
+                      style: textTheme.bodySmall,
                     ),
                 ],
               ),

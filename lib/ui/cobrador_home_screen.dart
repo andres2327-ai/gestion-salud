@@ -46,19 +46,19 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
     final tarjetasCobrador =
         ref.watch(tarjetaControllerProvider).tarjetasCobrador;
     final fmt = NumberFormat('#,###', 'es_CO');
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     if (perfil == null) return const SizedBox();
 
     final asignaciones = cobroState.asignaciones;
 
-    // Disparar carga de tarjetas cuando cambian las asignaciones
     final ids = asignaciones.map((a) => a.tarjetaId).toList();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sincronizarTarjetas(ids);
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,15 +72,10 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Hola,',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
+                      Text('Hola,', style: textTheme.bodySmall),
                       Text(
                         perfil.nombre,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
+                        style: textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -88,13 +83,13 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
                   ),
                   CircleAvatar(
                     radius: 22,
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: colorScheme.primaryContainer,
                     child: Text(
                       perfil.nombre.isNotEmpty
                           ? perfil.nombre[0].toUpperCase()
                           : 'C',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onPrimaryContainer,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -109,11 +104,9 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     'Mis Cobros',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
+                    style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -124,13 +117,13 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent.withAlpha(40),
+                      color: colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${asignaciones.length}',
-                      style: const TextStyle(
-                        color: Colors.blueAccent,
+                      style: TextStyle(
+                        color: colorScheme.onPrimaryContainer,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -143,25 +136,25 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
 
             Expanded(
               child: cobroState.cargando
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
-                        color: Colors.blueAccent,
+                        color: colorScheme.primary,
                       ),
                     )
                   : asignaciones.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.assignment_outlined,
-                            color: Colors.grey,
+                            color: colorScheme.onSurfaceVariant,
                             size: 48,
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           Text(
                             'No tienes tarjetas asignadas',
-                            style: TextStyle(color: Colors.grey),
+                            style: textTheme.bodyMedium,
                           ),
                         ],
                       ),
@@ -199,7 +192,6 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
       ),
     );
   }
-
 }
 
 // ─── Widgets ──────────────────────────────────────────────────────────────────
@@ -223,89 +215,90 @@ class _CobradoCard extends StatelessWidget {
     final total = tarjeta?.totalVenta ?? 0;
     final pagado = total - saldo;
     final progreso = total > 0 ? (pagado / total).clamp(0.0, 1.0) : 0.0;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
 
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1C3A),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  asignacion.nombreCliente as String,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-              if (tarjeta != null) _EstadoBadge(estado: tarjeta!.estado),
-            ],
-          ),
-          if (tarjeta != null) ...[
-            const SizedBox(height: 6),
-            if (tarjeta!.productos.isNotEmpty)
-              Text(
-                tarjeta!.productos.map((p) => p.nombreProducto).join(', '),
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            const SizedBox(height: 8),
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Saldo: \$${fmt.format(saldo)}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                Expanded(
+                  child: Text(
+                    asignacion.nombreCliente as String,
+                    style: textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                Text(
-                  'Total: \$${fmt.format(total)}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
-                ),
+                if (tarjeta != null) _EstadoBadge(estado: tarjeta!.estado),
               ],
             ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progreso,
-                backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Colors.tealAccent,
+            if (tarjeta != null) ...[
+              const SizedBox(height: 6),
+              if (tarjeta!.productos.isNotEmpty)
+                Text(
+                  tarjeta!.productos.map((p) => p.nombreProducto).join(', '),
+                  style: textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                minHeight: 5,
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Saldo: \$${fmt.format(saldo)}',
+                    style: textTheme.bodySmall,
+                  ),
+                  Text(
+                    'Total: \$${fmt.format(total)}',
+                    style: textTheme.bodySmall,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${(progreso * 100).toStringAsFixed(0)}% cobrado · '
-              '${tarjeta!.numCuotas} cuotas ${tarjeta!.frecuenciaPago == FrecuenciaPago.diaria ? "diarias" : "semanales"} '
-              '· \$${fmt.format(tarjeta!.montoCuota)} c/u',
-              style: const TextStyle(color: Colors.grey, fontSize: 11),
-            ),
-          ] else
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                'Cargando datos...',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progreso,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  minHeight: 5,
+                ),
               ),
-            ),
-        ],
+              const SizedBox(height: 6),
+              Text(
+                '${(progreso * 100).toStringAsFixed(0)}% cobrado · '
+                '${tarjeta!.numCuotas} cuotas ${tarjeta!.frecuenciaPago == FrecuenciaPago.diaria ? "diarias" : "semanales"} '
+                '· \$${fmt.format(tarjeta!.montoCuota)} c/u',
+                style: textTheme.bodySmall,
+              ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Cargando datos...',
+                  style: textTheme.bodySmall,
+                ),
+              ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 }
 
@@ -315,15 +308,16 @@ class _EstadoBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final (label, color) = switch (estado) {
-      EstadoTarjeta.activa => ('Activa', Colors.tealAccent),
+      EstadoTarjeta.activa => ('Activa', colorScheme.primary),
       EstadoTarjeta.pagada => ('Pagada', Colors.blue),
-      EstadoTarjeta.vencida => ('Vencida', Colors.red),
+      EstadoTarjeta.vencida => ('Vencida', colorScheme.error),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withAlpha(30),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

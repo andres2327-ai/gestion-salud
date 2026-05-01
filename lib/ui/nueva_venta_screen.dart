@@ -1,10 +1,10 @@
-// views/sales/nueva_venta_screen.dart
+﻿// views/sales/nueva_venta_screen.dart
 // Formulario completo para registrar una nueva venta
 // Arquitectura: Vista pura (MVC) — sin lógica de negocio ni llamadas a Firebase aquí
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
+import 'package:flutter/services.dart';
 import './custom_text_field.dart';
 import './sale_product_card.dart';
 import './product_picker_sheet.dart';
@@ -176,7 +176,6 @@ class _NuevaVentaScreenState extends State<NuevaVentaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: _buildAppBar(),
       body: Form(
         key: _formKey,

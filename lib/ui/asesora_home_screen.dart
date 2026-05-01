@@ -36,6 +36,7 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
     BuildContext context,
     UsuarioModel perfil,
   ) async {
+    final colorScheme = Theme.of(context).colorScheme;
     final ctrl = TextEditingController(
       text: perfil.metaMensual.toInt().toString(),
     );
@@ -43,53 +44,31 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
     final result = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1C3A),
-        title: const Text(
-          'Meta mensual',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Meta mensual'),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             prefixText: '\$ ',
-            prefixStyle: const TextStyle(
-              color: Colors.tealAccent,
+            prefixStyle: TextStyle(
+              color: colorScheme.primary,
               fontWeight: FontWeight.bold,
             ),
             hintText: '1500000',
-            hintStyle: const TextStyle(color: Colors.grey),
-            filled: true,
-            fillColor: const Color(0xFF0F1123),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.tealAccent),
-            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.grey),
-            ),
+            child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () {
               final val = double.tryParse(ctrl.text.replaceAll(',', '.'));
               if (val != null && val > 0) Navigator.pop(ctx, val);
             },
-            child: const Text(
-              'Guardar',
-              style: TextStyle(color: Colors.tealAccent),
-            ),
+            child: const Text('Guardar'),
           ),
         ],
       ),
@@ -110,6 +89,8 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
     final perfil = ref.watch(usuarioActualProvider);
     final tarjetaState = ref.watch(tarjetaControllerProvider);
     final cobroState = ref.watch(cobroControllerProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     if (perfil == null) return const SizedBox();
 
@@ -149,7 +130,6 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
     final fmt = NumberFormat('#,###', 'es_CO');
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -163,15 +143,10 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Hola,',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
+                      Text('Hola,', style: textTheme.bodySmall),
                       Text(
                         perfil.nombre,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
+                        style: textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -179,11 +154,11 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                   ),
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: Colors.tealAccent,
+                    backgroundColor: colorScheme.primaryContainer,
                     child: Text(
                       initials,
-                      style: const TextStyle(
-                        color: Colors.black,
+                      style: TextStyle(
+                        color: colorScheme.onPrimaryContainer,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -199,8 +174,11 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0D9B7A), Color(0xFF0ABFA3)],
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primary,
+                      colorScheme.secondary,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -273,7 +251,7 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                   _ActionCard(
                     icon: Icons.shopping_bag_outlined,
                     label: 'Nueva Venta',
-                    color: const Color(0xFF0D9B7A),
+                    color: colorScheme.primary,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -298,7 +276,7 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                   _ActionCard(
                     icon: Icons.replay_outlined,
                     label: 'Devolución',
-                    color: const Color(0xFF8B2A2A),
+                    color: colorScheme.error,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -311,10 +289,8 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                   _ActionCard(
                     icon: Icons.bar_chart_outlined,
                     label: 'Mis Ventas',
-                    color: const Color(0xFF1A3A6A),
-                    onTap: () {
-                      DefaultTabController.of(context);
-                    },
+                    color: Colors.blue,
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -341,12 +317,23 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = Theme.of(context).cardTheme.color ??
+        Theme.of(context).colorScheme.surface;
+    final textTheme = Theme.of(context).textTheme;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1C3A),
+          color: cardColor,
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -354,7 +341,7 @@ class _ActionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.3),
+                color: color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 28),
@@ -362,11 +349,8 @@ class _ActionCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+              style: textTheme.labelLarge,
+              textAlign: TextAlign.center,
             ),
           ],
         ),

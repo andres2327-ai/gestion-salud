@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
@@ -37,9 +37,7 @@ class _AdminDevolucionesScreenState
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1C3A),
         title: Row(
           children: [
             const Text(

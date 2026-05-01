@@ -41,6 +41,7 @@ class _AsesoraTarjetasScreenState
   Widget build(BuildContext context) {
     final perfil = ref.watch(usuarioActualProvider);
     final tarjetaState = ref.watch(tarjetaControllerProvider);
+    final colorScheme = Theme.of(context).colorScheme;
     final fmt = NumberFormat('#,###', 'es_CO');
 
     final tarjetas = tarjetaState.tarjetas
@@ -54,17 +55,8 @@ class _AsesoraTarjetasScreenState
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1C3A),
-        title: const Text(
-          'Mis Tarjetas',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Mis Tarjetas')),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.tealAccent,
         onPressed: () {
           if (perfil == null) return;
           Navigator.push(
@@ -77,7 +69,7 @@ class _AsesoraTarjetasScreenState
             ),
           );
         },
-        child: const Icon(Icons.add, color: Colors.black),
+        child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
@@ -87,17 +79,9 @@ class _AsesoraTarjetasScreenState
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _busqueda = v),
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Buscar cliente...',
-                hintStyle: const TextStyle(color: Colors.grey),
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                filled: true,
-                fillColor: const Color(0xFF1A1C3A),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
+                prefixIcon: Icon(Icons.search),
               ),
             ),
           ),
@@ -105,14 +89,16 @@ class _AsesoraTarjetasScreenState
           // Lista
           Expanded(
             child: tarjetaState.cargando
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.tealAccent),
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
+                    ),
                   )
                 : tarjetas.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No hay ventas registradas',
-                      style: TextStyle(color: Colors.grey),
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   )
                 : ListView.builder(
@@ -134,12 +120,12 @@ class _TarjetaCard extends StatelessWidget {
 
   const _TarjetaCard({required this.tarjeta, required this.fmt});
 
-  Color get _estadoColor {
+  Color _estadoColor(ColorScheme cs) {
     switch (tarjeta.estado) {
       case EstadoTarjeta.pagada:
         return Colors.blue;
       case EstadoTarjeta.vencida:
-        return Colors.red;
+        return cs.error;
       case EstadoTarjeta.activa:
         return tarjeta.saldoPendiente > 0 ? Colors.orange : Colors.green;
     }
@@ -163,22 +149,28 @@ class _TarjetaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+    final estadoColor = _estadoColor(colorScheme);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1C3A),
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 22,
-            backgroundColor: _estadoColor.withAlpha(60),
+            backgroundColor: estadoColor.withValues(alpha: 0.2),
             child: Text(
               _iniciales,
               style: TextStyle(
-                color: _estadoColor,
+                color: estadoColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
@@ -191,22 +183,20 @@ class _TarjetaCard extends StatelessWidget {
               children: [
                 Text(
                   tarjeta.nombreCliente,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Deuda: \$${fmt.format(tarjeta.saldoPendiente)}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  style: textTheme.bodySmall,
                 ),
                 const SizedBox(height: 4),
                 if (tarjeta.productos.isNotEmpty)
                   Text(
                     tarjeta.productos.map((p) => p.nombreProducto).join(', '),
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    style: textTheme.bodySmall,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -217,13 +207,13 @@ class _TarjetaCard extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: _estadoColor.withAlpha(40),
+                    color: estadoColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     _estadoLabel,
                     style: TextStyle(
-                      color: _estadoColor,
+                      color: estadoColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -237,21 +227,14 @@ class _TarjetaCard extends StatelessWidget {
             children: [
               Text(
                 '\$${fmt.format(tarjeta.totalVenta)}',
-                style: const TextStyle(
-                  color: Colors.tealAccent,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.primary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                '${tarjeta.numCuotas} cuotas',
-                style: const TextStyle(color: Colors.grey, fontSize: 11),
-              ),
-              Text(
-                tarjeta.frecuenciaPago.name,
-                style: const TextStyle(color: Colors.grey, fontSize: 11),
-              ),
+              Text('${tarjeta.numCuotas} cuotas', style: textTheme.bodySmall),
+              Text(tarjeta.frecuenciaPago.name, style: textTheme.bodySmall),
             ],
           ),
         ],

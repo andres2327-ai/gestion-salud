@@ -24,38 +24,31 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
   @override
   Widget build(BuildContext context) {
     final usuarioState = ref.watch(usuarioControllerProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1C3A),
-        title: const Text(
-          'Usuarios',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        elevation: 0,
+        title: const Text('Usuarios'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            icon: Icon(Icons.logout, color: colorScheme.error),
             tooltip: 'Cerrar sesión',
             onPressed: () => _confirmarLogout(context),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.tealAccent,
         onPressed: () => _mostrarFormularioUsuario(context),
-        child: const Icon(Icons.person_add, color: Colors.black),
+        child: const Icon(Icons.person_add),
       ),
       body: usuarioState.cargando
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.tealAccent),
-            )
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : usuarioState.error != null
           ? Center(
               child: Text(
                 'Error: ${usuarioState.error}',
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(color: colorScheme.error),
               ),
             )
           : RefreshIndicator(
@@ -71,7 +64,7 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A1C3A),
+                        color: Theme.of(context).cardTheme.color,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -132,12 +125,12 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                     ],
 
                     if (usuarioState.todos.isEmpty)
-                      const Center(
+                      Center(
                         child: Padding(
-                          padding: EdgeInsets.all(32),
+                          padding: const EdgeInsets.all(32),
                           child: Text(
                             'No hay usuarios registrados',
-                            style: TextStyle(color: Colors.grey),
+                            style: textTheme.bodyMedium,
                           ),
                         ),
                       ),
@@ -149,9 +142,9 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
   }
 
   void _mostrarOpcionesUsuario(BuildContext context, UsuarioModel usuario) {
+    final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1C3A),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -164,13 +157,13 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: Colors.tealAccent.withAlpha(40),
+                  backgroundColor: colorScheme.primaryContainer,
                   child: Text(
                     usuario.nombre.isNotEmpty
                         ? usuario.nombre[0].toUpperCase()
                         : '?',
-                    style: const TextStyle(
-                      color: Colors.tealAccent,
+                    style: TextStyle(
+                      color: colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -183,7 +176,6 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                       Text(
                         usuario.nombre,
                         style: const TextStyle(
-                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -192,17 +184,14 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                         usuario.rol == RolUsuario.asesora
                             ? 'Asesora'
                             : 'Cobrador',
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const Divider(color: Colors.white12, height: 28),
+            const Divider(height: 28),
 
             // Toggle activo/inactivo
             ListTile(
@@ -233,7 +222,6 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                             ? 'Usuario desactivado'
                             : 'Usuario activado',
                       ),
-                      backgroundColor: Colors.teal,
                     ),
                   );
                 }
@@ -244,14 +232,14 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
             if (usuario.rol == RolUsuario.asesora)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(
+                leading: Icon(
                   Icons.inventory_2_outlined,
-                  color: Colors.tealAccent,
+                  color: colorScheme.primary,
                 ),
-                title: const Text(
+                title: Text(
                   'Asignar productos',
                   style: TextStyle(
-                    color: Colors.tealAccent,
+                    color: colorScheme.primary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -265,14 +253,14 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
             if (usuario.rol == RolUsuario.cobrador)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(
+                leading: Icon(
                   Icons.credit_card_outlined,
-                  color: Colors.blueAccent,
+                  color: colorScheme.tertiary,
                 ),
-                title: const Text(
+                title: Text(
                   'Asignar tarjetas',
                   style: TextStyle(
-                    color: Colors.blueAccent,
+                    color: colorScheme.tertiary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -320,12 +308,8 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1C3A),
-          title: const Text(
-            'Nuevo Usuario',
-            style: TextStyle(color: Colors.white),
-          ),
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Nuevo Usuario'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -352,60 +336,28 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                 const SizedBox(height: 10),
                 _DialogField(controller: direccionCtrl, hint: 'Dirección'),
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F1123),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.withAlpha(80)),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<RolUsuario>(
-                      value: rolSeleccionado,
-                      isExpanded: true,
-                      dropdownColor: const Color(0xFF1A1C3A),
-                      items: [
-                        DropdownMenuItem(
-                          value: RolUsuario.asesora,
-                          child: Text(
-                            'Asesora',
-                            style: TextStyle(
-                              color: rolSeleccionado == RolUsuario.asesora
-                                  ? Colors.tealAccent
-                                  : Colors.white,
-                            ),
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: RolUsuario.cobrador,
-                          child: Text(
-                            'Cobrador',
-                            style: TextStyle(
-                              color: rolSeleccionado == RolUsuario.cobrador
-                                  ? Colors.tealAccent
-                                  : Colors.white,
-                            ),
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: RolUsuario.admin,
-                          child: Text(
-                            'Administrador',
-                            style: TextStyle(
-                              color: rolSeleccionado == RolUsuario.admin
-                                  ? Colors.tealAccent
-                                  : Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) {
-                          setDialogState(() => rolSeleccionado = v);
-                        }
-                      },
+                DropdownButtonFormField<RolUsuario>(
+                  initialValue: rolSeleccionado,
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: RolUsuario.asesora,
+                      child: Text('Asesora'),
                     ),
-                  ),
+                    DropdownMenuItem(
+                      value: RolUsuario.cobrador,
+                      child: Text('Cobrador'),
+                    ),
+                    DropdownMenuItem(
+                      value: RolUsuario.admin,
+                      child: Text('Administrador'),
+                    ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setDialogState(() => rolSeleccionado = v);
+                    }
+                  },
                 ),
               ],
             ),
@@ -413,16 +365,9 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.grey),
-              ),
+              child: const Text('Cancelar'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.tealAccent,
-                foregroundColor: Colors.black,
-              ),
               onPressed: () async {
                 if (nombreCtrl.text.isEmpty ||
                     emailCtrl.text.isEmpty ||
@@ -432,7 +377,6 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
                     const SnackBar(
                       content: Text('Completa todos los campos'),
-                      backgroundColor: Colors.red,
                     ),
                   );
                   return;
@@ -454,7 +398,9 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                       content: Text(
                         ok ? 'Usuario creado' : 'Error al crear usuario',
                       ),
-                      backgroundColor: ok ? Colors.green : Colors.red,
+                      backgroundColor: ok
+                          ? Colors.green
+                          : Theme.of(context).colorScheme.error,
                     ),
                   );
                 }
@@ -471,21 +417,17 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1C3A),
-        title: const Text(
-          '¿Cerrar sesión?',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('¿Cerrar sesión?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'Cerrar sesión',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],
@@ -507,11 +449,9 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-      ),
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
     );
   }
 }
@@ -525,12 +465,13 @@ class _ResumenItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withAlpha(40),
+            color: color.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(Icons.person, color: color, size: 20),
@@ -538,13 +479,9 @@ class _ResumenItem extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           valor,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+          style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(label, style: textTheme.bodySmall),
       ],
     );
   }
@@ -558,31 +495,36 @@ class _UsuarioCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1C3A),
+          color: cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: usuario.activo
-                ? Colors.green.withAlpha(60)
-                : Colors.grey.withAlpha(30),
+                ? Colors.green.withValues(alpha: 0.3)
+                : colorScheme.outline.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: Colors.tealAccent.withAlpha(30),
+              backgroundColor: colorScheme.primaryContainer,
               child: Text(
                 usuario.nombre.isNotEmpty
                     ? usuario.nombre[0].toUpperCase()
                     : '?',
-                style: const TextStyle(
-                  color: Colors.tealAccent,
+                style: TextStyle(
+                  color: colorScheme.onPrimaryContainer,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -597,8 +539,7 @@ class _UsuarioCard extends StatelessWidget {
                     children: [
                       Text(
                         usuario.nombre,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -609,14 +550,16 @@ class _UsuarioCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: usuario.activo
-                              ? Colors.green.withAlpha(40)
-                              : Colors.red.withAlpha(40),
+                              ? Colors.green.withValues(alpha: 0.15)
+                              : colorScheme.errorContainer,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           usuario.activo ? 'Activo' : 'Inactivo',
                           style: TextStyle(
-                            color: usuario.activo ? Colors.green : Colors.red,
+                            color: usuario.activo
+                                ? Colors.green
+                                : colorScheme.error,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -625,22 +568,18 @@ class _UsuarioCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    usuario.email,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
+                  Text(usuario.email, style: textTheme.bodySmall),
                   Text(
                     usuario.telefono,
-                    style: const TextStyle(
-                      color: Colors.tealAccent,
-                      fontSize: 12,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.primary,
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.more_vert, color: Colors.grey, size: 20),
+            Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant, size: 20),
           ],
         ),
       ),
@@ -667,21 +606,7 @@ class _DialogField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.grey),
-        filled: true,
-        fillColor: const Color(0xFF0F1123),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 12,
-        ),
-      ),
+      decoration: InputDecoration(hintText: hint),
     );
   }
 }

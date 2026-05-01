@@ -10,6 +10,8 @@ class AsesoraPerfilScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(usuarioActualProvider);
     final tarjetaState = ref.watch(tarjetaControllerProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     if (perfil == null) return const SizedBox();
 
@@ -30,7 +32,6 @@ class AsesoraPerfilScreen extends ConsumerWidget {
     final desde = DateFormat('MMM yyyy', 'es_ES').format(perfil.fechaCreacion);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -41,11 +42,11 @@ class AsesoraPerfilScreen extends ConsumerWidget {
             Center(
               child: CircleAvatar(
                 radius: 40,
-                backgroundColor: Colors.tealAccent,
+                backgroundColor: colorScheme.primaryContainer,
                 child: Text(
                   initials,
-                  style: const TextStyle(
-                    color: Colors.black,
+                  style: TextStyle(
+                    color: colorScheme.onPrimaryContainer,
                     fontWeight: FontWeight.bold,
                     fontSize: 28,
                   ),
@@ -56,9 +57,7 @@ class AsesoraPerfilScreen extends ConsumerWidget {
             Center(
               child: Text(
                 perfil.nombre,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
+                style: textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -66,7 +65,7 @@ class AsesoraPerfilScreen extends ConsumerWidget {
             Center(
               child: Text(
                 'Asesora desde $desde',
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                style: textTheme.bodySmall,
               ),
             ),
 
@@ -79,7 +78,6 @@ class AsesoraPerfilScreen extends ConsumerWidget {
                   child: _StatCard(
                     label: 'Ventas',
                     value: '$totalVentas',
-                    color: Colors.tealAccent,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -87,7 +85,6 @@ class AsesoraPerfilScreen extends ConsumerWidget {
                   child: _StatCard(
                     label: 'Vendido',
                     value: '\$${_compactCurrency(totalVendido, fmt)}',
-                    color: Colors.tealAccent,
                   ),
                 ),
               ],
@@ -95,7 +92,6 @@ class AsesoraPerfilScreen extends ConsumerWidget {
 
             const SizedBox(height: 28),
 
-            // Menú
             _MenuItem(
               icon: Icons.settings_outlined,
               label: 'Configuración',
@@ -111,7 +107,7 @@ class AsesoraPerfilScreen extends ConsumerWidget {
             _MenuItem(
               icon: Icons.logout,
               label: 'Cerrar Sesión',
-              color: Colors.redAccent,
+              color: colorScheme.error,
               onTap: () => _confirmarCerrarSesion(context, ref),
             ),
           ],
@@ -134,25 +130,18 @@ class AsesoraPerfilScreen extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1C3A),
-        title: const Text(
-          '¿Cerrar sesión?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Se cerrará tu sesión actual.',
-          style: TextStyle(color: Colors.grey),
-        ),
+        title: const Text('¿Cerrar sesión?'),
+        content: const Text('Se cerrará tu sesión actual.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'Cerrar sesión',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],
@@ -167,37 +156,33 @@ class AsesoraPerfilScreen extends ConsumerWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final Color color;
 
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  const _StatCard({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1C3A),
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
           Text(
             value,
-            style: TextStyle(
-              color: color,
-              fontSize: 22,
+            style: textTheme.titleLarge?.copyWith(
+              color: colorScheme.primary,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
-          ),
+          Text(label, style: textTheme.bodySmall),
         ],
       ),
     );
@@ -219,13 +204,18 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? Colors.white;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final c = color ?? colorScheme.onSurface;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1C3A),
+          color: cardColor,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -235,14 +225,17 @@ class _MenuItem extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(
+                style: textTheme.bodyLarge?.copyWith(
                   color: c,
-                  fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            Icon(Icons.chevron_right, color: c.withAlpha(120), size: 20),
+            Icon(
+              Icons.chevron_right,
+              color: c.withValues(alpha: 0.5),
+              size: 20,
+            ),
           ],
         ),
       ),

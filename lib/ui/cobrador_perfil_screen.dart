@@ -9,6 +9,9 @@ class CobradorPerfilScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(usuarioActualProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     if (perfil == null) return const SizedBox();
 
     final initials = perfil.nombre
@@ -22,7 +25,6 @@ class CobradorPerfilScreen extends ConsumerWidget {
     final desde = DateFormat('MMM yyyy', 'es_ES').format(perfil.fechaCreacion);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1123),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -31,11 +33,11 @@ class CobradorPerfilScreen extends ConsumerWidget {
             Center(
               child: CircleAvatar(
                 radius: 40,
-                backgroundColor: Colors.blueAccent,
+                backgroundColor: colorScheme.primaryContainer,
                 child: Text(
                   initials,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onPrimaryContainer,
                     fontWeight: FontWeight.bold,
                     fontSize: 28,
                   ),
@@ -46,9 +48,7 @@ class CobradorPerfilScreen extends ConsumerWidget {
             Center(
               child: Text(
                 perfil.nombre,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
+                style: textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -56,7 +56,7 @@ class CobradorPerfilScreen extends ConsumerWidget {
             Center(
               child: Text(
                 'Cobrador desde $desde',
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                style: textTheme.bodySmall,
               ),
             ),
             const SizedBox(height: 24),
@@ -94,7 +94,7 @@ class CobradorPerfilScreen extends ConsumerWidget {
             _MenuItem(
               icon: Icons.logout,
               label: 'Cerrar Sesión',
-              color: Colors.redAccent,
+              color: colorScheme.error,
               onTap: () => _confirmarCerrarSesion(context, ref),
             ),
           ],
@@ -110,21 +110,17 @@ class CobradorPerfilScreen extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1C3A),
-        title: const Text(
-          '¿Cerrar sesión?',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('¿Cerrar sesión?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'Cerrar sesión',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],
@@ -149,25 +145,30 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1C3A),
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
           Text(
             value,
-            style: TextStyle(
-              color: Colors.blueAccent,
-              fontSize: small ? 16 : 22,
+            style: textTheme.titleLarge?.copyWith(
+              color: colorScheme.primary,
+              fontSize: small ? 16 : null,
               fontWeight: FontWeight.bold,
             ),
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          Text(label, style: textTheme.bodySmall),
         ],
       ),
     );
@@ -189,13 +190,18 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? Colors.white;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final c = color ?? colorScheme.onSurface;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1C3A),
+          color: cardColor,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -205,10 +211,14 @@ class _MenuItem extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(color: c, fontSize: 15),
+                style: textTheme.bodyLarge?.copyWith(color: c),
               ),
             ),
-            Icon(Icons.chevron_right, color: c.withAlpha(120), size: 20),
+            Icon(
+              Icons.chevron_right,
+              color: c.withValues(alpha: 0.5),
+              size: 20,
+            ),
           ],
         ),
       ),
