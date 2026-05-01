@@ -57,6 +57,11 @@ class ProductoService {
     await _col.doc(codigoBarras).update({'activo': false});
   }
 
+  // Eliminar producto permanentemente
+  Future<void> eliminarProducto(String codigoBarras) async {
+    await _col.doc(codigoBarras).delete();
+  }
+
   // Obtener productos con stock bajo (menos de N unidades)
   Future<List<ProductoModel>> productosStockBajo({int limite = 10}) async {
     final snap = await _col

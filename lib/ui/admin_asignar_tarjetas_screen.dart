@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
@@ -18,6 +18,8 @@ class AdminAsignarTarjetasScreen extends ConsumerStatefulWidget {
 class _AdminAsignarTarjetasScreenState
     extends ConsumerState<AdminAsignarTarjetasScreen> {
   late final Stream<List<TarjetaModel>> _tarjetasStream;
+  final Set<String> _expandedZones = {};
+  final fmt = NumberFormat('#,###', 'es_CO');
 
   @override
   void initState() {
@@ -31,11 +33,120 @@ class _AdminAsignarTarjetasScreenState
     });
   }
 
+  Future<void> _asignarZona(
+    String zona,
+    List<TarjetaModel> tarjetasDeZona,
+    Set<String> yaAsignadasIds,
+  ) async {
+    final perfil = ref.read(usuarioActualProvider);
+    final sinAsignar =
+        tarjetasDeZona.where((t) => !yaAsignadasIds.contains(t.tarjetaId));
+
+    if (!mounted) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Asignar zona $zona'),
+        content: Text(
+          'Se asignarán ${sinAsignar.length} tarjeta(s) de $zona '
+          'al cobrador ${widget.cobrador.nombre}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    final ok = await ref.read(cobroControllerProvider.notifier).asignarZona(
+      cobradorUid: widget.cobrador.uid,
+      nombreCobrador: widget.cobrador.nombre,
+      tarjetas: tarjetasDeZona,
+      yaAsignadasIds: yaAsignadasIds,
+      adminUid: perfil?.uid ?? '',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? 'Zona $zona asignada a ${widget.cobrador.nombre}'
+                : ref.read(cobroControllerProvider).error ?? 'Error',
+          ),
+          backgroundColor: ok ? Colors.green : Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _desasignarZona(
+    String zona,
+    List<TarjetaModel> tarjetasDeZona,
+    Set<String> yaAsignadasIds,
+    List<AsignacionModel> todasAsignaciones,
+  ) async {
+    final asignadasDeZona = todasAsignaciones
+        .where(
+          (a) => tarjetasDeZona.any((t) => t.tarjetaId == a.tarjetaId) && a.activa,
+        )
+        .toList();
+
+    if (!mounted) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Quitar zona $zona'),
+        content: Text(
+          'Se quitarán ${asignadasDeZona.length} asignación(es) '
+          'de $zona al cobrador ${widget.cobrador.nombre}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    final ctrl = ref.read(cobroControllerProvider.notifier);
+    for (final a in asignadasDeZona) {
+      await ctrl.desactivarAsignacion(a.asignacionId);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Zona $zona quitada de ${widget.cobrador.nombre}'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cobroState = ref.watch(cobroControllerProvider);
-    final perfil = ref.watch(usuarioActualProvider);
-    final fmt = NumberFormat('#,###', 'es_CO');
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     final asignadasIds = cobroState.asignaciones
         .where((a) => a.activa)
@@ -45,30 +156,30 @@ class _AdminAsignarTarjetasScreenState
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Asignar Tarjetas',
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
+            const Text('Cobros por Zona', style: TextStyle(fontSize: 16)),
             Text(
               widget.cobrador.nombre,
-              style: const TextStyle(color: Colors.tealAccent, fontSize: 12),
+              style: TextStyle(
+                color: colorScheme.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
-        elevation: 0,
       ),
       body: StreamBuilder<List<TarjetaModel>>(
         stream: _tarjetasStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.tealAccent),
+            return Center(
+              child: CircularProgressIndicator(color: colorScheme.primary),
             );
           }
 
@@ -76,160 +187,413 @@ class _AdminAsignarTarjetasScreenState
               .where((t) => t.estado == EstadoTarjeta.activa)
               .toList();
 
-          if (tarjetasActivas.isEmpty) {
-            return const Center(
-              child: Text(
-                'No hay tarjetas activas',
-                style: TextStyle(color: Colors.grey),
+          // Agrupar por zona
+          final Map<String, List<TarjetaModel>> porZona = {};
+          for (final zona in kZonas) {
+            final lista = tarjetasActivas.where((t) => t.zona == zona).toList();
+            if (lista.isNotEmpty) porZona[zona] = lista;
+          }
+
+          // Tarjetas sin zona asignada
+          final sinZona = tarjetasActivas.where((t) => t.zona.isEmpty).toList();
+
+          if (porZona.isEmpty && sinZona.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.map_outlined,
+                    size: 56,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No hay tarjetas activas con zona asignada',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             );
           }
 
-          return ListView.builder(
+          return ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: tarjetasActivas.length,
-            itemBuilder: (_, i) {
-              final tarjeta = tarjetasActivas[i];
-              final yaAsignada = asignadasIds.contains(tarjeta.tarjetaId);
+            children: [
+              // Resumen de asignaciones
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.assignment_turned_in_outlined,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${asignadasIds.length} tarjeta(s) asignada(s) en total',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
 
-              return _TarjetaAsignableCard(
-                tarjeta: tarjeta,
-                fmt: fmt,
-                yaAsignada: yaAsignada,
-                onAsignar: yaAsignada
-                    ? null
-                    : () => _asignar(
-                          context,
-                          tarjeta,
-                          perfil?.uid ?? '',
+              // Cards por zona
+              ...porZona.entries.map(
+                (entry) => _ZonaCard(
+                  zona: entry.key,
+                  tarjetas: entry.value,
+                  asignadasIds: asignadasIds,
+                  todasAsignaciones: cobroState.asignaciones,
+                  expanded: _expandedZones.contains(entry.key),
+                  fmt: fmt,
+                  onToggleExpand: () => setState(() {
+                    if (_expandedZones.contains(entry.key)) {
+                      _expandedZones.remove(entry.key);
+                    } else {
+                      _expandedZones.add(entry.key);
+                    }
+                  }),
+                  onAsignar: () => _asignarZona(
+                    entry.key,
+                    entry.value,
+                    asignadasIds,
+                  ),
+                  onDesasignar: () => _desasignarZona(
+                    entry.key,
+                    entry.value,
+                    asignadasIds,
+                    cobroState.asignaciones,
+                  ),
+                ),
+              ),
+
+              // Tarjetas sin zona
+              if (sinZona.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.help_outline,
+                        color: colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${sinZona.length} tarjeta(s) sin zona',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
-              );
-            },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           );
         },
       ),
     );
   }
-
-  Future<void> _asignar(
-    BuildContext context,
-    TarjetaModel tarjeta,
-    String adminUid,
-  ) async {
-    final ok = await ref
-        .read(cobroControllerProvider.notifier)
-        .asignarTarjeta(
-          cobradorUid: widget.cobrador.uid,
-          nombreCobrador: widget.cobrador.nombre,
-          tarjetaId: tarjeta.tarjetaId,
-          nombreCliente: tarjeta.nombreCliente,
-          adminUid: adminUid,
-        );
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ok
-                ? 'Tarjeta de ${tarjeta.nombreCliente} asignada a ${widget.cobrador.nombre}'
-                : 'Error al asignar tarjeta',
-          ),
-          backgroundColor: ok ? Colors.green : Colors.red,
-        ),
-      );
-    }
-  }
 }
 
-class _TarjetaAsignableCard extends StatelessWidget {
-  final TarjetaModel tarjeta;
+// ─── Card de zona ─────────────────────────────────────────────────────────────
+class _ZonaCard extends StatelessWidget {
+  final String zona;
+  final List<TarjetaModel> tarjetas;
+  final Set<String> asignadasIds;
+  final List<AsignacionModel> todasAsignaciones;
+  final bool expanded;
   final NumberFormat fmt;
-  final bool yaAsignada;
-  final VoidCallback? onAsignar;
+  final VoidCallback onToggleExpand;
+  final VoidCallback onAsignar;
+  final VoidCallback onDesasignar;
 
-  const _TarjetaAsignableCard({
-    required this.tarjeta,
+  const _ZonaCard({
+    required this.zona,
+    required this.tarjetas,
+    required this.asignadasIds,
+    required this.todasAsignaciones,
+    required this.expanded,
     required this.fmt,
-    required this.yaAsignada,
-    this.onAsignar,
+    required this.onToggleExpand,
+    required this.onAsignar,
+    required this.onDesasignar,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final cardColor = Theme.of(context).cardTheme.color ?? colorScheme.surface;
+
+    final asignadasEnZona =
+        tarjetas.where((t) => asignadasIds.contains(t.tarjetaId)).length;
+    final total = tarjetas.length;
+    final todasAsignadas = asignadasEnZona == total;
+    final algunaAsignada = asignadasEnZona > 0;
+    final progress = total > 0 ? asignadasEnZona / total : 0.0;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1C3A),
-        borderRadius: BorderRadius.circular(12),
-        border: yaAsignada
-            ? Border.all(color: Colors.tealAccent.withAlpha(60))
-            : null,
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: todasAsignadas
+              ? Colors.green.withValues(alpha: 0.5)
+              : algunaAsignada
+              ? colorScheme.primary.withValues(alpha: 0.4)
+              : colorScheme.outlineVariant,
+          width: todasAsignadas ? 1.5 : 1,
+        ),
       ),
+      child: Column(
+        children: [
+          // ── Cabecera de zona ────────────────────────────────────────────
+          InkWell(
+            onTap: onToggleExpand,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: todasAsignadas
+                              ? Colors.green.withValues(alpha: 0.15)
+                              : colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.map_rounded,
+                          color: todasAsignadas
+                              ? Colors.green
+                              : colorScheme.onPrimaryContainer,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              zona,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '$asignadasEnZona / $total tarjeta(s) asignada(s)',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        expanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+
+                  // Barra de progreso
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      color: todasAsignadas ? Colors.green : colorScheme.primary,
+                      minHeight: 6,
+                    ),
+                  ),
+
+                  // Botones acción
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      if (!todasAsignadas)
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: onAsignar,
+                            icon: const Icon(Icons.add_task, size: 16),
+                            label: Text(
+                              algunaAsignada
+                                  ? 'Asignar restantes (${total - asignadasEnZona})'
+                                  : 'Asignar zona ($total)',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      if (todasAsignadas)
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.check_circle_outline,
+                                  color: Colors.green,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Zona completamente asignada',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (algunaAsignada) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: onDesasignar,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colorScheme.error,
+                            side: BorderSide(color: colorScheme.error),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                          ),
+                          child: const Text(
+                            'Quitar',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Lista de tarjetas de la zona ─────────────────────────────────
+          if (expanded) ...[
+            Divider(
+              height: 1,
+              color: colorScheme.outlineVariant,
+              indent: 16,
+              endIndent: 16,
+            ),
+            ...tarjetas.map(
+              (t) => _TarjetaRow(
+                tarjeta: t,
+                asignada: asignadasIds.contains(t.tarjetaId),
+                fmt: fmt,
+                colorScheme: colorScheme,
+                textTheme: textTheme,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Fila de tarjeta individual ────────────────────────────────────────────────
+class _TarjetaRow extends StatelessWidget {
+  final TarjetaModel tarjeta;
+  final bool asignada;
+  final NumberFormat fmt;
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  const _TarjetaRow({
+    required this.tarjeta,
+    required this.asignada,
+    required this.fmt,
+    required this.colorScheme,
+    required this.textTheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
+          Icon(
+            asignada
+                ? Icons.check_circle_outline
+                : Icons.radio_button_unchecked,
+            color: asignada ? Colors.green : colorScheme.outlineVariant,
+            size: 18,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   tarjeta.nombreCliente,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
                 Text(
-                  'Saldo: \$${fmt.format(tarjeta.saldoPendiente)}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  'Saldo: \$${fmt.format(tarjeta.saldoPendiente)}  ·  ${tarjeta.nombreAsesora}',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                if (tarjeta.nombreAsesora.isNotEmpty)
-                  Text(
-                    'Asesora: ${tarjeta.nombreAsesora}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
-                  ),
-                if (tarjeta.productos.isNotEmpty)
-                  Text(
-                    tarjeta.productos.map((p) => p.nombreProducto).join(', '),
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          yaAsignada
-              ? Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.tealAccent.withAlpha(20),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Asignada',
-                    style: TextStyle(color: Colors.tealAccent, fontSize: 12),
-                  ),
-                )
-              : OutlinedButton(
-                  onPressed: onAsignar,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.tealAccent,
-                    side: const BorderSide(color: Colors.tealAccent),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('Asignar', style: TextStyle(fontSize: 12)),
+          if (asignada)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Asignada',
+                style: textTheme.labelSmall?.copyWith(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+            ),
         ],
       ),
     );

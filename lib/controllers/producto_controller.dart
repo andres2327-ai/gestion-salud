@@ -118,6 +118,19 @@ class ProductoController extends StateNotifier<ProductoState> {
     }
   }
 
+  // Eliminar producto permanentemente
+  Future<bool> eliminarProducto(String codigoBarras) async {
+    state = state.copyWith(cargando: true, error: null);
+    try {
+      await _service.eliminarProducto(codigoBarras);
+      state = state.copyWith(exito: 'Producto eliminado.');
+      return true;
+    } catch (e) {
+      state = state.copyWith(cargando: false, error: e.toString());
+      return false;
+    }
+  }
+
   void limpiarMensajes() {
     state = state.copyWith(error: null, exito: null);
   }

@@ -257,6 +257,21 @@ class CobroService {
 
   // ─── ASIGNACIONES ─────────────────────────────────────────────────────────
 
+  // Asignar todas las tarjetas de una zona a un cobrador (batch)
+  Future<void> asignarPorZona({
+    required String cobradorUid,
+    required String nombreCobrador,
+    required List<AsignacionModel> asignaciones,
+  }) async {
+    if (asignaciones.isEmpty) return;
+    final batch = _db.batch();
+    for (final a in asignaciones) {
+      final ref = _asigCol.doc();
+      batch.set(ref, {...a.toMap(), 'asignacion_id': ref.id});
+    }
+    await batch.commit();
+  }
+
   // Asignar tarjeta a cobrador (previene duplicados)
   Future<void> asignar(AsignacionModel asignacion) async {
     final existing = await _asigCol

@@ -74,7 +74,7 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
       ),
     );
 
-    ctrl.dispose();
+    // Don't dispose ctrl here: TextField still holds it during the dialog's exit animation.
 
     if (result != null && context.mounted) {
       await ref

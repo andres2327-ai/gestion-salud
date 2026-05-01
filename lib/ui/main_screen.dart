@@ -7,6 +7,7 @@ import 'inventario.dart';
 import 'asesoras_screen.dart';
 import 'reportes_screen.dart';
 import 'admin_devoluciones_screen.dart';
+import 'admin_ventas_screen.dart';
 import 'asesora_home_screen.dart';
 import 'asesora_tarjetas_screen.dart';
 import 'asesora_productos_screen.dart';
@@ -60,6 +61,7 @@ class _AdminNav extends StatelessWidget {
     final screens = [
       const DashboardScreen(),
       const InventarioPage(),
+      const AdminVentasScreen(),
       const AsesoresScreen(),
       const AdminDevolucionesScreen(),
       const ReportesScreen(),
@@ -74,6 +76,10 @@ class _AdminNav extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.inventory),
             label: 'Inventario',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long_outlined),
+            label: 'Ventas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.people),

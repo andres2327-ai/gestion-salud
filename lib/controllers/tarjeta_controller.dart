@@ -174,6 +174,8 @@ class TarjetaController extends StateNotifier<TarjetaState> {
     required TipoPago tipoPago,
     required FrecuenciaPago frecuenciaPago,
     required int numCuotas,
+    required String zona,
+    String? descripcion,
     File? foto,
   }) async {
     if (state.carrito.isEmpty) {
@@ -213,6 +215,8 @@ class TarjetaController extends StateNotifier<TarjetaState> {
         saldoPendiente: totalVenta,
         estado: EstadoTarjeta.activa,
         fechaVenta: DateTime.now(),
+        zona: zona,
+        descripcion: descripcion,
       );
 
       // Construir items de tarjeta
@@ -281,6 +285,35 @@ class TarjetaController extends StateNotifier<TarjetaState> {
         ),
       );
     });
+  }
+
+  // Actualizar tarjeta (admin)
+  Future<bool> actualizarTarjeta(
+    String tarjetaId,
+    Map<String, dynamic> datos,
+  ) async {
+    state = state.copyWith(cargando: true, error: null);
+    try {
+      await _tarjetaService.actualizarTarjeta(tarjetaId, datos);
+      state = state.copyWith(cargando: false, exito: 'Venta actualizada.');
+      return true;
+    } catch (e) {
+      state = state.copyWith(cargando: false, error: e.toString());
+      return false;
+    }
+  }
+
+  // Eliminar tarjeta (admin)
+  Future<bool> eliminarTarjeta(String tarjetaId) async {
+    state = state.copyWith(cargando: true, error: null);
+    try {
+      await _tarjetaService.eliminarTarjeta(tarjetaId);
+      state = state.copyWith(cargando: false, exito: 'Venta eliminada.');
+      return true;
+    } catch (e) {
+      state = state.copyWith(cargando: false, error: e.toString());
+      return false;
+    }
   }
 
   // Obtener productos de una tarjeta

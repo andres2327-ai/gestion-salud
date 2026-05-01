@@ -8,6 +8,15 @@ enum FrecuenciaPago { diaria, semanal }
 
 enum EstadoTarjeta { activa, pagada, vencida }
 
+const kZonas = [
+  'Pueblo Bello',
+  'La Paz',
+  'Guacoche',
+  'Valencia',
+  'Montería',
+  'San Diego',
+];
+
 // ─── Ítem de producto dentro de una tarjeta ──────────────────────────────────
 class TarjetaProductoModel {
   final String id;
@@ -73,6 +82,8 @@ class TarjetaModel {
   final DateTime fechaVenta;
   final String? fotoUrl;
   final List<TarjetaProductoModel> productos;
+  final String zona;
+  final String? descripcion;
 
   TarjetaModel({
     required this.tarjetaId,
@@ -94,6 +105,8 @@ class TarjetaModel {
     required this.fechaVenta,
     this.fotoUrl,
     this.productos = const [],
+    this.zona = '',
+    this.descripcion,
   });
 
   factory TarjetaModel.fromMap(Map<String, dynamic> map, String id) {
@@ -141,6 +154,8 @@ class TarjetaModel {
           : DateTime.now(),
       fotoUrl: map['foto_url'],
       productos: productos,
+      zona: map['zona'] ?? '',
+      descripcion: map['descripcion'],
     );
   }
 
@@ -163,6 +178,8 @@ class TarjetaModel {
       'estado': estado.name,
       'fecha_venta': FieldValue.serverTimestamp(),
       'foto_url': fotoUrl,
+      'zona': zona,
+      if (descripcion != null) 'descripcion': descripcion,
     };
   }
 }

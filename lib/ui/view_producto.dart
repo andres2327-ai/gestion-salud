@@ -10,7 +10,8 @@ import './custom_text_field.dart';
 import './barcode_scanner_screen.dart';
 
 class ProductoFormPage extends ConsumerStatefulWidget {
-  const ProductoFormPage({super.key});
+  final ProductoModel? productoEditar;
+  const ProductoFormPage({super.key, this.productoEditar});
 
   @override
   ConsumerState<ProductoFormPage> createState() => _ProductoFormPageState();
@@ -29,6 +30,23 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
   DateTime? _fechaVencimiento;
   bool _activo = true;
   bool _guardando = false;
+
+  bool get _modoEdicion => widget.productoEditar != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.productoEditar;
+    if (p != null) {
+      _codigoCtrl.text = p.codigoBarras;
+      _nombreCtrl.text = p.nombre;
+      _precioCtrl.text = p.precioUnitario.toStringAsFixed(0);
+      _stockCtrl.text = p.cantidadStock.toString();
+      _tipoSeleccionado = p.tipo;
+      _fechaVencimiento = p.fechaVencimiento;
+      _activo = p.activo;
+    }
+  }
 
   Future<void> _escanearCodigo() async {
     final codigo = await Navigator.push<String>(
@@ -52,26 +70,42 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
 
     setState(() => _guardando = true);
 
-    final producto = ProductoModel(
-      codigoBarras:     _codigoCtrl.text.trim(),
-      nombre:           _nombreCtrl.text.trim(),
-      tipo:             _tipoSeleccionado!,
-      precioUnitario:   double.tryParse(_precioCtrl.text.trim()) ?? 0,
-      cantidadStock:    int.tryParse(_stockCtrl.text.trim()) ?? 0,
-      fechaVencimiento: _fechaVencimiento!,
-      activo:           _activo,
-    );
-
-    final exito = await ref
-        .read(productoControllerProvider.notifier)
-        .agregarProducto(producto);
+    bool exito;
+    if (_modoEdicion) {
+      exito = await ref
+          .read(productoControllerProvider.notifier)
+          .actualizarProducto(
+            widget.productoEditar!.codigoBarras,
+            {
+              'nombre': _nombreCtrl.text.trim(),
+              'tipo': _tipoSeleccionado!.name,
+              'precio_unitario': double.tryParse(_precioCtrl.text.trim()) ?? 0,
+              'cantidad_stock': int.tryParse(_stockCtrl.text.trim()) ?? 0,
+              'fecha_vencimiento': _fechaVencimiento,
+              'activo': _activo,
+            },
+          );
+    } else {
+      final producto = ProductoModel(
+        codigoBarras:     _codigoCtrl.text.trim(),
+        nombre:           _nombreCtrl.text.trim(),
+        tipo:             _tipoSeleccionado!,
+        precioUnitario:   double.tryParse(_precioCtrl.text.trim()) ?? 0,
+        cantidadStock:    int.tryParse(_stockCtrl.text.trim()) ?? 0,
+        fechaVencimiento: _fechaVencimiento!,
+        activo:           _activo,
+      );
+      exito = await ref
+          .read(productoControllerProvider.notifier)
+          .agregarProducto(producto);
+    }
 
     if (!mounted) return;
     setState(() => _guardando = false);
 
     if (exito) {
       ScaffoldMessenger.of(context).showSnackBar(
-        _snack('Producto guardado exitosamente ✓'),
+        _snack(_modoEdicion ? 'Producto actualizado ✓' : 'Producto guardado exitosamente ✓'),
       );
       Navigator.pop(context);
     } else {
@@ -97,7 +131,7 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestión de Producto'),
+        title: Text(_modoEdicion ? 'Editar Producto' : 'Nuevo Producto'),
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
           icon: Container(
@@ -135,6 +169,7 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
                     prefixIcon: Icons.numbers_rounded,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    readOnly: _modoEdicion,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Campo requerido' : null,
                   ),

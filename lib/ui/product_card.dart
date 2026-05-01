@@ -7,6 +7,8 @@ class ProductoCard extends StatelessWidget {
   final String tipo;
   final int cantidad;
   final VoidCallback? onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const ProductoCard({
     super.key,
@@ -14,6 +16,8 @@ class ProductoCard extends StatelessWidget {
     required this.tipo,
     required this.cantidad,
     this.onTap,
+    this.onEdit,
+    this.onDelete,
   });
 
   Color _stockColor(ColorScheme cs) {
@@ -83,6 +87,44 @@ class ProductoCard extends StatelessWidget {
                 Text('uds', style: textTheme.bodySmall),
               ],
             ),
+            if (onEdit != null || onDelete != null) ...[
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_vert,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+                onSelected: (value) {
+                  if (value == 'edit') onEdit?.call();
+                  if (value == 'delete') onDelete?.call();
+                },
+                itemBuilder: (_) => [
+                  if (onEdit != null)
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 10),
+                          Text('Editar'),
+                        ],
+                      ),
+                    ),
+                  if (onDelete != null)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                          SizedBox(width: 10),
+                          Text('Eliminar', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

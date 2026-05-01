@@ -31,6 +31,10 @@ class _AsesoraNuevaVentaScreenState
   FrecuenciaPago _frecuencia = FrecuenciaPago.semanal;
   int _numCuotas = 4;
   final Map<String, int> _cantidades = {};
+  String? _zona;
+  final _descripcionCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
+  String _busqueda = '';
   bool _guardando = false;
 
   final fmt = NumberFormat('#,###', 'es_CO');
@@ -50,6 +54,8 @@ class _AsesoraNuevaVentaScreenState
     _nombreCtrl.dispose();
     _telefonoCtrl.dispose();
     _direccionCtrl.dispose();
+    _descripcionCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -68,6 +74,15 @@ class _AsesoraNuevaVentaScreenState
 
   Future<void> _registrarVenta() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_zona == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecciona una zona'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     if (!_tieneProductos) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -103,6 +118,10 @@ class _AsesoraNuevaVentaScreenState
       tipoPago: TipoPago.cuotas,
       frecuenciaPago: _frecuencia,
       numCuotas: _numCuotas,
+      zona: _zona!,
+      descripcion: _descripcionCtrl.text.trim().isEmpty
+          ? null
+          : _descripcionCtrl.text.trim(),
     );
 
     // Actualizar cantidades vendidas en asignaciones
@@ -185,6 +204,40 @@ class _AsesoraNuevaVentaScreenState
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Requerido' : null,
             ),
+            const SizedBox(height: 12),
+
+            // Zona
+            DropdownButtonFormField<String>(
+              initialValue: _zona,
+              decoration: InputDecoration(
+                hintText: 'Zona *',
+                hintStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(Icons.map_outlined, color: Colors.grey, size: 20),
+                filled: true,
+                fillColor: const Color(0xFF1A1C3A),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.tealAccent),
+                ),
+              ),
+              dropdownColor: const Color(0xFF1A1C3A),
+              style: const TextStyle(color: Colors.white),
+              items: kZonas.map((z) => DropdownMenuItem(value: z, child: Text(z))).toList(),
+              onChanged: (v) => setState(() => _zona = v),
+            ),
+            const SizedBox(height: 12),
+
+            // Descripción (opcional)
+            _buildField(
+              controller: _descripcionCtrl,
+              hint: 'Descripción (opcional) — casa, calle, referencia...',
+              icon: Icons.notes_outlined,
+              maxLines: 3,
+            ),
 
             const SizedBox(height: 24),
 
@@ -204,15 +257,108 @@ class _AsesoraNuevaVentaScreenState
                   textAlign: TextAlign.center,
                 ),
               )
-            else
-              ...asignaciones.map((a) => _ProductoRow(
-                    asignacion: a,
-                    cantidad: _cantidades[a.codigoBarras] ?? 0,
-                    fmt: fmt,
-                    onChanged: (qty) {
-                      setState(() => _cantidades[a.codigoBarras] = qty);
-                    },
-                  )),
+            else ...[
+              // Selected products shown at top
+              Builder(builder: (_) {
+                final seleccionados = asignaciones
+                    .where((a) => (_cantidades[a.codigoBarras] ?? 0) > 0)
+                    .toList();
+                final noSeleccionados = asignaciones
+                    .where((a) => (_cantidades[a.codigoBarras] ?? 0) == 0)
+                    .toList();
+                final filtrados = _busqueda.isEmpty
+                    ? noSeleccionados
+                    : noSeleccionados
+                        .where((a) => a.nombreProducto
+                            .toLowerCase()
+                            .contains(_busqueda.toLowerCase()))
+                        .toList();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (seleccionados.isNotEmpty) ...[
+                      const Text(
+                        'EN CARRITO',
+                        style: TextStyle(
+                          color: Colors.tealAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...seleccionados.map((a) => _ProductoRow(
+                            asignacion: a,
+                            cantidad: _cantidades[a.codigoBarras] ?? 0,
+                            fmt: fmt,
+                            onChanged: (qty) =>
+                                setState(() => _cantidades[a.codigoBarras] = qty),
+                          )),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'AGREGAR MÁS',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    // Search field
+                    TextFormField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _busqueda = v),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Buscar producto...',
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                        suffixIcon: _busqueda.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.close, color: Colors.grey, size: 18),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _busqueda = '');
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: const Color(0xFF1A1C3A),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.tealAccent),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (filtrados.isEmpty && noSeleccionados.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          'Sin resultados para "$_busqueda"',
+                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else
+                      ...filtrados.map((a) => _ProductoRow(
+                            asignacion: a,
+                            cantidad: _cantidades[a.codigoBarras] ?? 0,
+                            fmt: fmt,
+                            onChanged: (qty) =>
+                                setState(() => _cantidades[a.codigoBarras] = qty),
+                          )),
+                  ],
+                );
+              }),
+            ],
 
             const SizedBox(height: 24),
 
@@ -368,12 +514,14 @@ class _AsesoraNuevaVentaScreenState
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
+    int maxLines = 1,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       validator: validator,
+      maxLines: maxLines,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: hint,

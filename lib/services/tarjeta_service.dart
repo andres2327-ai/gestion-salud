@@ -152,6 +152,36 @@ class TarjetaService {
     );
   }
 
+  // Actualizar campos de una tarjeta
+  Future<void> actualizarTarjeta(
+    String tarjetaId,
+    Map<String, dynamic> datos,
+  ) async {
+    await _col.doc(tarjetaId).update(datos);
+  }
+
+  // Eliminar tarjeta, sus cuotas y sus asignaciones
+  Future<void> eliminarTarjeta(String tarjetaId) async {
+    final results = await Future.wait([
+      _db.collection('cuotas').where('tarjeta_id', isEqualTo: tarjetaId).get(),
+      _db
+          .collection('asignaciones')
+          .where('tarjeta_id', isEqualTo: tarjetaId)
+          .get(),
+    ]);
+
+    final batch = _db.batch();
+    batch.delete(_col.doc(tarjetaId));
+    for (final doc in results[0].docs) {
+      batch.delete(doc.reference);
+    }
+    for (final doc in results[1].docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
+  }
+
   // ─── Productos de una tarjeta ──────────────────────────────────────────────
 
   Future<List<TarjetaProductoModel>> obtenerProductosDeTarjeta(

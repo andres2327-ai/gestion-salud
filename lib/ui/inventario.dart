@@ -16,6 +16,36 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
 
+  Future<void> _confirmarEliminar(
+    BuildContext context,
+    String codigoBarras,
+    String nombre,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar producto'),
+        content: Text('¿Eliminar "$nombre" del inventario? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.error),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await ref.read(productoControllerProvider.notifier).eliminarProducto(codigoBarras);
+    }
+  }
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -232,8 +262,17 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
             cantidad: producto.cantidadStock,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ProductoFormPage()),
+              MaterialPageRoute(
+                builder: (_) => ProductoFormPage(productoEditar: producto),
+              ),
             ),
+            onEdit: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProductoFormPage(productoEditar: producto),
+              ),
+            ),
+            onDelete: () => _confirmarEliminar(context, producto.codigoBarras, producto.nombre),
           );
         },
       ),

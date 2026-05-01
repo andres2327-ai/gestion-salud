@@ -225,6 +225,47 @@ class CobroController extends StateNotifier<CobroState> {
     });
   }
 
+  // Admin: asignar todas las tarjetas de una zona a un cobrador
+  Future<bool> asignarZona({
+    required String cobradorUid,
+    required String nombreCobrador,
+    required List<TarjetaModel> tarjetas,
+    required Set<String> yaAsignadasIds,
+    required String adminUid,
+  }) async {
+    state = state.copyWith(cargando: true, error: null);
+    try {
+      final nuevas = tarjetas
+          .where((t) => !yaAsignadasIds.contains(t.tarjetaId))
+          .map(
+            (t) => AsignacionModel(
+              asignacionId: '',
+              cobradorUid: cobradorUid,
+              nombreCobrador: nombreCobrador,
+              tarjetaId: t.tarjetaId,
+              nombreCliente: t.nombreCliente,
+              adminUid: adminUid,
+              fechaAsignacion: DateTime.now(),
+              activa: true,
+            ),
+          )
+          .toList();
+      await _service.asignarPorZona(
+        cobradorUid: cobradorUid,
+        nombreCobrador: nombreCobrador,
+        asignaciones: nuevas,
+      );
+      state = state.copyWith(
+        cargando: false,
+        exito: '${nuevas.length} tarjetas asignadas.',
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(cargando: false, error: e.toString());
+      return false;
+    }
+  }
+
   // Admin: asignar tarjeta a cobrador
   Future<bool> asignarTarjeta({
     required String cobradorUid,

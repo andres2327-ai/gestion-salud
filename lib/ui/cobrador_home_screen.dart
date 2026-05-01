@@ -14,6 +14,7 @@ class CobradorHomeScreen extends ConsumerStatefulWidget {
 
 class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
   List<String> _idsAnteriores = [];
+  bool _limpiandoHuerfanas = false;
 
   @override
   void initState() {
@@ -39,6 +40,26 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
         .cargarTarjetasCobrador(nuevosIds);
   }
 
+  // Deactivate assignments whose tarjeta no longer exists in Firestore.
+  Future<void> _limpiarHuerfanas(List<TarjetaModel> tarjetasEncontradas) async {
+    if (_limpiandoHuerfanas || !mounted || _idsAnteriores.isEmpty) return;
+    final idsEncontradas = tarjetasEncontradas.map((t) => t.tarjetaId).toSet();
+    final huerfanos = _idsAnteriores.where((id) => !idsEncontradas.contains(id)).toList();
+    if (huerfanos.isEmpty) return;
+
+    _limpiandoHuerfanas = true;
+    final asignaciones = ref.read(cobroControllerProvider).asignaciones;
+    for (final id in huerfanos) {
+      final asig = asignaciones.where((a) => a.tarjetaId == id).firstOrNull;
+      if (asig != null) {
+        await ref
+            .read(cobroControllerProvider.notifier)
+            .desactivarAsignacion(asig.asignacionId);
+      }
+    }
+    _limpiandoHuerfanas = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final perfil = ref.watch(usuarioActualProvider);
@@ -50,6 +71,14 @@ class _CobradorHomeScreenState extends ConsumerState<CobradorHomeScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     if (perfil == null) return const SizedBox();
+
+    // Auto-clean assignments whose tarjeta was deleted by the admin.
+    ref.listen(
+      tarjetaControllerProvider.select((s) => s.tarjetasCobrador),
+      (_, tarjetas) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _limpiarHuerfanas(tarjetas));
+      },
+    );
 
     final asignaciones = cobroState.asignaciones;
 
