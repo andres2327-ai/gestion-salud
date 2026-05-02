@@ -318,8 +318,18 @@ class CobroService {
         );
   }
 
-  // Desactivar asignación
+  // Desactivar asignación individual
   Future<void> desactivarAsignacion(String asignacionId) async {
     await _asigCol.doc(asignacionId).update({'activa': false});
+  }
+
+  // Desactivar múltiples asignaciones en un solo batch
+  Future<void> desactivarAsignacionesBatch(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final batch = _db.batch();
+    for (final id in ids) {
+      batch.update(_asigCol.doc(id), {'activa': false});
+    }
+    await batch.commit();
   }
 }

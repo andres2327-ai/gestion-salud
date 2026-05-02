@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/asignacion_producto_model.dart';
 import '../services/asignacion_producto_service.dart';
@@ -38,14 +39,22 @@ class AsignacionProductoState {
 class AsignacionProductoController
     extends StateNotifier<AsignacionProductoState> {
   final AsignacionProductoService _service;
+  StreamSubscription<List<AsignacionProductoModel>>? _sub;
 
   AsignacionProductoController(this._service)
     : super(const AsignacionProductoState());
 
   void escucharAsignaciones(String asesoraUid) {
-    _service.streamAsignacionesAsesora(asesoraUid).listen((lista) {
+    _sub?.cancel();
+    _sub = _service.streamAsignacionesAsesora(asesoraUid).listen((lista) {
       state = state.copyWith(asignaciones: lista);
     });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   Future<bool> asignarProducto({

@@ -127,16 +127,20 @@ class _AdminAsignarTarjetasScreenState
 
     if (confirm != true || !mounted) return;
 
-    final ctrl = ref.read(cobroControllerProvider.notifier);
-    for (final a in asignadasDeZona) {
-      await ctrl.desactivarAsignacion(a.asignacionId);
-    }
+    final ids = asignadasDeZona.map((a) => a.asignacionId).toList();
+    final ok = await ref
+        .read(cobroControllerProvider.notifier)
+        .desactivarAsignacionesBatch(ids);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Zona $zona quitada de ${widget.cobrador.nombre}'),
-          backgroundColor: Colors.orange,
+          content: Text(
+            ok
+                ? 'Zona $zona quitada de ${widget.cobrador.nombre}'
+                : ref.read(cobroControllerProvider).error ?? 'Error',
+          ),
+          backgroundColor: ok ? Colors.orange : Colors.red,
         ),
       );
     }

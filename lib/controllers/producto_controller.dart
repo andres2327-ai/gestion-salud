@@ -1,5 +1,6 @@
 // lib/controllers/producto_controller.dart
 
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/producto_model.dart';
 import '../services/producto_service.dart';
@@ -46,6 +47,7 @@ class ProductoState {
 
 class ProductoController extends StateNotifier<ProductoState> {
   final ProductoService _service;
+  StreamSubscription<List<ProductoModel>>? _sub;
 
   ProductoController(this._service) : super(const ProductoState()) {
     cargar();
@@ -54,18 +56,21 @@ class ProductoController extends StateNotifier<ProductoState> {
   // Suscribirse al stream de productos
   Future<void> cargar() async {
     state = state.copyWith(cargando: true);
-    try {
-      _service.streamProductos().listen(
-        (lista) {
-          state = state.copyWith(productos: lista, cargando: false);
-        },
-        onError: (e) {
-          state = state.copyWith(cargando: false, error: e.toString());
-        },
-      );
-    } catch (e) {
-      state = state.copyWith(cargando: false, error: e.toString());
-    }
+    _sub?.cancel();
+    _sub = _service.streamProductos().listen(
+      (lista) {
+        state = state.copyWith(productos: lista, cargando: false);
+      },
+      onError: (e) {
+        state = state.copyWith(cargando: false, error: e.toString());
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   // Agregar producto nuevo

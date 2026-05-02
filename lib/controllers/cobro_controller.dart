@@ -1,5 +1,6 @@
 // lib/controllers/cobro_controller.dart
 
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/tarjeta_model.dart';
 import '../services/cobro_service.dart';
@@ -53,12 +54,25 @@ class CobroState {
 class CobroController extends StateNotifier<CobroState> {
   final CobroService _service;
 
+  StreamSubscription<List<CuotaModel>>? _cuotasSub;
+  StreamSubscription<List<DevolucionModel>>? _devolucionesSub;
+  StreamSubscription<List<AsignacionModel>>? _asignacionesSub;
+
   CobroController(this._service) : super(const CobroState());
+
+  @override
+  void dispose() {
+    _cuotasSub?.cancel();
+    _devolucionesSub?.cancel();
+    _asignacionesSub?.cancel();
+    super.dispose();
+  }
 
   // ─── CUOTAS ───────────────────────────────────────────────────────────────
 
   void escucharCuotasDeTarjeta(String tarjetaId) {
-    _service.streamCuotasDeTarjeta(tarjetaId).listen((lista) {
+    _cuotasSub?.cancel();
+    _cuotasSub = _service.streamCuotasDeTarjeta(tarjetaId).listen((lista) {
       state = state.copyWith(cuotas: lista);
     });
   }
@@ -124,14 +138,18 @@ class CobroController extends StateNotifier<CobroState> {
 
   // Admin: escuchar todas las devoluciones (con filtro opcional)
   void escucharDevoluciones({EstadoDevolucion? estado}) {
-    _service.streamDevoluciones(estado: estado).listen((lista) {
+    _devolucionesSub?.cancel();
+    _devolucionesSub =
+        _service.streamDevoluciones(estado: estado).listen((lista) {
       state = state.copyWith(devoluciones: lista);
     });
   }
 
   // Asesora: escuchar sus devoluciones
   void escucharDevolucionesAsesora(String asesoraUid) {
-    _service.streamDevolucionesAsesora(asesoraUid).listen((lista) {
+    _devolucionesSub?.cancel();
+    _devolucionesSub =
+        _service.streamDevolucionesAsesora(asesoraUid).listen((lista) {
       state = state.copyWith(devoluciones: lista);
     });
   }
@@ -213,14 +231,17 @@ class CobroController extends StateNotifier<CobroState> {
 
   // Admin: escuchar todas las asignaciones
   void escucharAsignaciones() {
-    _service.streamTodasAsignaciones().listen((lista) {
+    _asignacionesSub?.cancel();
+    _asignacionesSub = _service.streamTodasAsignaciones().listen((lista) {
       state = state.copyWith(asignaciones: lista);
     });
   }
 
   // Cobrador: escuchar sus asignaciones activas
   void escucharAsignacionesCobrador(String cobradorUid) {
-    _service.streamAsignacionesCobrador(cobradorUid).listen((lista) {
+    _asignacionesSub?.cancel();
+    _asignacionesSub =
+        _service.streamAsignacionesCobrador(cobradorUid).listen((lista) {
       state = state.copyWith(asignaciones: lista);
     });
   }
@@ -298,13 +319,27 @@ class CobroController extends StateNotifier<CobroState> {
     }
   }
 
-  // Desactivar asignación
+  // Desactivar asignación individual
   Future<void> desactivarAsignacion(String asignacionId) async {
     try {
       await _service.desactivarAsignacion(asignacionId);
       state = state.copyWith(exito: 'Asignación eliminada.');
     } catch (e) {
       state = state.copyWith(error: e.toString());
+    }
+  }
+
+  // Desactivar múltiples asignaciones en un solo batch (quitar zona)
+  Future<bool> desactivarAsignacionesBatch(List<String> ids) async {
+    if (ids.isEmpty) return true;
+    state = state.copyWith(cargando: true, error: null);
+    try {
+      await _service.desactivarAsignacionesBatch(ids);
+      state = state.copyWith(cargando: false, exito: 'Asignaciones quitadas.');
+      return true;
+    } catch (e) {
+      state = state.copyWith(cargando: false, error: e.toString());
+      return false;
     }
   }
 

@@ -1,5 +1,6 @@
 // lib/controllers/tarjeta_controller.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/tarjeta_model.dart';
@@ -66,6 +67,10 @@ class TarjetaController extends StateNotifier<TarjetaState> {
   final StorageService _storageService;
   final GpsService _gpsService;
 
+  StreamSubscription<List<TarjetaModel>>? _asesorasSub;
+  StreamSubscription<List<TarjetaModel>>? _cobradorSub;
+  StreamSubscription<List<TarjetaModel>>? _todasSub;
+
   TarjetaController(
     this._tarjetaService,
     this._storageService,
@@ -74,27 +79,40 @@ class TarjetaController extends StateNotifier<TarjetaState> {
 
   // Cargar tarjetas de una asesora
   void cargarTarjetasAsesora(String asesoraUid) {
-    _tarjetaService.streamTarjetasAsesora(asesoraUid).listen((lista) {
+    _asesorasSub?.cancel();
+    _asesorasSub =
+        _tarjetaService.streamTarjetasAsesora(asesoraUid).listen((lista) {
       state = state.copyWith(tarjetas: lista);
     });
   }
 
   // Cargar tarjetas asignadas al cobrador (por lista de IDs)
   void cargarTarjetasCobrador(List<String> tarjetaIds) {
+    _cobradorSub?.cancel();
     if (tarjetaIds.isEmpty) {
       state = state.copyWith(tarjetasCobrador: []);
       return;
     }
-    _tarjetaService.streamTarjetasPorIds(tarjetaIds).listen((lista) {
+    _cobradorSub =
+        _tarjetaService.streamTarjetasPorIds(tarjetaIds).listen((lista) {
       state = state.copyWith(tarjetasCobrador: lista);
     });
   }
 
   // Cargar todas (admin)
   void cargarTodas() {
-    _tarjetaService.streamTodasLasTarjetas().listen((lista) {
+    _todasSub?.cancel();
+    _todasSub = _tarjetaService.streamTodasLasTarjetas().listen((lista) {
       state = state.copyWith(tarjetas: lista);
     });
+  }
+
+  @override
+  void dispose() {
+    _asesorasSub?.cancel();
+    _cobradorSub?.cancel();
+    _todasSub?.cancel();
+    super.dispose();
   }
 
   // ─── Carrito ──────────────────────────────────────────────────────────────
