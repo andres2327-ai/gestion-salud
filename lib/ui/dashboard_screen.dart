@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
-import '../services/initialization_service.dart';
 import '../utils/formato_helper.dart';
 import 'stat_card.dart';
 
@@ -48,39 +47,6 @@ class DashboardScreen extends ConsumerWidget {
                         .refrescar(),
                     child: const Text('Reintentar'),
                   ),
-                  const SizedBox(height: 12),
-                  if (dashboardState.error!.contains('permission'))
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                      ),
-                      onPressed: () async {
-                        final initService = InitializationService();
-                        try {
-                          await initService.inicializarDatos();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Datos inicializados'),
-                              ),
-                            );
-                          }
-                          ref
-                              .read(dashboardControllerProvider.notifier)
-                              .refrescar();
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: $e'),
-                                backgroundColor: colorScheme.error,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      child: const Text('Inicializar Datos'),
-                    ),
                 ],
               ),
             )

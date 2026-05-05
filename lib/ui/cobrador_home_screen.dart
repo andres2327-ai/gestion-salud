@@ -342,6 +342,7 @@ class _EstadoBadge extends StatelessWidget {
       EstadoTarjeta.activa => ('Activa', colorScheme.primary),
       EstadoTarjeta.pagada => ('Pagada', Colors.blue),
       EstadoTarjeta.vencida => ('Vencida', colorScheme.error),
+      EstadoTarjeta.atrasada => ('Atrasada', Colors.orange),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

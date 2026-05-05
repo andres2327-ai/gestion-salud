@@ -146,6 +146,8 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
         return 'Pagada';
       case EstadoTarjeta.vencida:
         return 'Vencida';
+      case EstadoTarjeta.atrasada:
+        return 'Atrasada';
     }
   }
 
@@ -377,6 +379,8 @@ class _VentaCard extends StatelessWidget {
         return Colors.green;
       case EstadoTarjeta.vencida:
         return cs.error;
+      case EstadoTarjeta.atrasada:
+        return Colors.orange;
     }
   }
 
@@ -388,6 +392,8 @@ class _VentaCard extends StatelessWidget {
         return 'Pagada';
       case EstadoTarjeta.vencida:
         return 'Vencida';
+      case EstadoTarjeta.atrasada:
+        return 'Atrasada';
     }
   }
 

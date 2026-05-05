@@ -8,6 +8,7 @@ import 'services/cobro_service.dart';
 import 'services/storage_service.dart';
 import 'services/dashboard_service.dart';
 import 'services/asignacion_producto_service.dart';
+import 'services/comision_service.dart';
 
 import 'controllers/auth_controller.dart';
 import 'controllers/usuario_controller.dart';
@@ -16,6 +17,7 @@ import 'controllers/tarjeta_controller.dart';
 import 'controllers/cobro_controller.dart';
 import 'controllers/dashboard_controller.dart';
 import 'controllers/asignacion_producto_controller.dart';
+import 'controllers/comision_controller.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SERVICES (singleton, sin estado)
@@ -154,6 +156,16 @@ final devolucionesPendientesProvider = Provider((ref) {
 final asignacionesCobradorProvider = Provider((ref) {
   return ref.watch(cobroControllerProvider).asignaciones;
 });
+
+/// Comisiones (asesoras y cobradores)
+final comisionServiceProvider = Provider<ComisionService>(
+  (ref) => ComisionService(),
+);
+
+final comisionControllerProvider =
+    StateNotifierProvider<ComisionController, ComisionState>((ref) {
+      return ComisionController(ref.watch(comisionServiceProvider));
+    });
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ASIGNACIONES DE PRODUCTOS A ASESORAS

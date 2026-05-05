@@ -2,12 +2,14 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/tarjeta_model.dart';
+import 'comision_service.dart';
 
 class CobroService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final _cuotasCol = FirebaseFirestore.instance.collection('cuotas');
   final _devCol = FirebaseFirestore.instance.collection('devoluciones');
   final _asigCol = FirebaseFirestore.instance.collection('asignaciones');
+  final _comisionService = ComisionService();
 
   // ─── CUOTAS ───────────────────────────────────────────────────────────────
 
@@ -28,6 +30,8 @@ class CobroService {
     required String cuotaId,
     required String tarjetaId,
     required String cobradorUid,
+    required String nombreCobrador,
+    required String nombreCliente,
     required double monto,
     String? observacion,
   }) async {
@@ -47,6 +51,15 @@ class CobroService {
     });
 
     await batch.commit();
+
+    // Registrar comisión del cobrador (20%)
+    await _comisionService.registrarComisionCobro(
+      usuarioUid: cobradorUid,
+      nombreUsuario: nombreCobrador,
+      tarjetaId: tarjetaId,
+      nombreCliente: nombreCliente,
+      montoCobrado: monto,
+    );
 
     // Verificar si la tarjeta quedó totalmente pagada
     await _verificarTarjetaPagada(tarjetaId);
@@ -99,6 +112,8 @@ class CobroService {
   Future<void> registrarPago({
     required String tarjetaId,
     required String cobradorUid,
+    required String nombreCobrador,
+    required String nombreCliente,
     required double monto,
     String? observacion,
   }) async {
@@ -120,7 +135,28 @@ class CobroService {
     });
 
     await batch.commit();
+
+    // Registrar comisión del cobrador (20%)
+    await _comisionService.registrarComisionCobro(
+      usuarioUid: cobradorUid,
+      nombreUsuario: nombreCobrador,
+      tarjetaId: tarjetaId,
+      nombreCliente: nombreCliente,
+      montoCobrado: monto,
+    );
+
     await _verificarTarjetaPagada(tarjetaId);
+  }
+
+  // Solicitar devolución (cobrador durante ruta)
+  Future<String> solicitarDevolucionCobrador(DevolucionModel devolucion) async {
+    final ref = _devCol.doc();
+    await ref.set({
+      ...devolucion.toMap(),
+      'estado': EstadoDevolucion.pendiente.name,
+      'origen': 'cobrador',
+    });
+    return ref.id;
   }
 
   // Stream de pagos de una tarjeta (sin orderBy para evitar índice compuesto)

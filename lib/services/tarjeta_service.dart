@@ -2,11 +2,13 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/tarjeta_model.dart';
+import 'comision_service.dart';
 
 class TarjetaService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final _col = FirebaseFirestore.instance.collection('tarjetas');
   final _tpCol = FirebaseFirestore.instance.collection('tarjeta_productos');
+  final _comisionService = ComisionService();
 
   // ─── Tarjetas ──────────────────────────────────────────────────────────────
 
@@ -33,11 +35,13 @@ class TarjetaService {
       final prodRef = _tpCol.doc();
       batch.set(prodRef, {...prod.toMap(), 'tarjeta_id': tarjetaId});
 
-      // Descontar del inventario
-      final inventarioRef = _db.collection('productos').doc(prod.codigoBarras);
-      batch.update(inventarioRef, {
-        'cantidad_stock': FieldValue.increment(-prod.cantidad),
-      });
+      // Solo descontar del inventario si el producto NO es pendiente
+      if (!prod.pendiente) {
+        final inventarioRef = _db.collection('productos').doc(prod.codigoBarras);
+        batch.update(inventarioRef, {
+          'cantidad_stock': FieldValue.increment(-prod.cantidad),
+        });
+      }
     }
 
     // Guardar cuotas
@@ -47,6 +51,16 @@ class TarjetaService {
     }
 
     await batch.commit();
+
+    // Registrar comisión de la asesora (20% del total de venta)
+    await _comisionService.registrarComisionVenta(
+      usuarioUid: tarjeta.asesoraUid,
+      nombreUsuario: tarjeta.nombreAsesora,
+      tarjetaId: tarjetaId,
+      nombreCliente: tarjeta.nombreCliente,
+      totalVenta: tarjeta.totalVenta,
+    );
+
     return tarjetaId;
   }
 

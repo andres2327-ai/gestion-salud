@@ -13,8 +13,10 @@ import '../services/storage_service.dart';
 class ItemCarrito {
   final ProductoModel producto;
   int cantidad;
+  // pendiente = true: manually added, not from assigned stock
+  final bool pendiente;
 
-  ItemCarrito({required this.producto, required this.cantidad});
+  ItemCarrito({required this.producto, required this.cantidad, this.pendiente = false});
 
   double get subtotal => producto.precioUnitario * cantidad;
 }
@@ -134,7 +136,7 @@ class TarjetaController extends StateNotifier<TarjetaState> {
     agregarAlCarrito(producto, cantidad);
   }
 
-  void agregarAlCarrito(ProductoModel producto, int cantidad) {
+  void agregarAlCarrito(ProductoModel producto, int cantidad, {bool pendiente = false}) {
     final carritoActual = List<ItemCarrito>.from(state.carrito);
     final idx = carritoActual.indexWhere(
       (i) => i.producto.codigoBarras == producto.codigoBarras,
@@ -144,11 +146,30 @@ class TarjetaController extends StateNotifier<TarjetaState> {
       carritoActual[idx] = ItemCarrito(
         producto: producto,
         cantidad: carritoActual[idx].cantidad + cantidad,
+        pendiente: carritoActual[idx].pendiente,
       );
     } else {
-      carritoActual.add(ItemCarrito(producto: producto, cantidad: cantidad));
+      carritoActual.add(ItemCarrito(producto: producto, cantidad: cantidad, pendiente: pendiente));
     }
     state = state.copyWith(carrito: carritoActual);
+  }
+
+  // Agrega un producto pendiente (no asignado) al carrito
+  void agregarProductoPendiente({
+    required String nombre,
+    required double precioUnitario,
+    required int cantidad,
+  }) {
+    final producto = ProductoModel(
+      codigoBarras: 'PENDIENTE_${DateTime.now().millisecondsSinceEpoch}',
+      nombre: nombre,
+      tipo: TipoProducto.pastillas,
+      precioUnitario: precioUnitario,
+      cantidadStock: 9999,
+      fechaVencimiento: DateTime(2099),
+      activo: true,
+    );
+    agregarAlCarrito(producto, cantidad, pendiente: true);
   }
 
   void quitarDelCarrito(String codigoBarras) {
@@ -247,6 +268,7 @@ class TarjetaController extends StateNotifier<TarjetaState> {
           cantidad: item.cantidad,
           precioVenta: item.producto.precioUnitario,
           subtotal: item.subtotal,
+          pendiente: item.pendiente,
         );
       }).toList();
 

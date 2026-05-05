@@ -6,7 +6,7 @@ enum TipoPago { cuotas, contado }
 
 enum FrecuenciaPago { diaria, semanal }
 
-enum EstadoTarjeta { activa, pagada, vencida }
+enum EstadoTarjeta { activa, pagada, vencida, atrasada }
 
 const kZonas = [
   'Pueblo Bello',
@@ -26,6 +26,8 @@ class TarjetaProductoModel {
   final int cantidad;
   final double precioVenta;
   final double subtotal;
+  // pendiente = true: product not in asesora's assigned stock (no stock deduction, counted in tarjeta total)
+  final bool pendiente;
 
   TarjetaProductoModel({
     required this.id,
@@ -35,6 +37,7 @@ class TarjetaProductoModel {
     required this.cantidad,
     required this.precioVenta,
     required this.subtotal,
+    this.pendiente = false,
   });
 
   factory TarjetaProductoModel.fromMap(Map<String, dynamic> map, String id) {
@@ -46,6 +49,7 @@ class TarjetaProductoModel {
       cantidad: map['cantidad'] ?? 0,
       precioVenta: (map['precio_venta'] ?? 0).toDouble(),
       subtotal: (map['subtotal'] ?? 0).toDouble(),
+      pendiente: map['pendiente'] ?? false,
     );
   }
 
@@ -57,6 +61,7 @@ class TarjetaProductoModel {
       'cantidad': cantidad,
       'precio_venta': precioVenta,
       'subtotal': subtotal,
+      'pendiente': pendiente,
     };
   }
 }

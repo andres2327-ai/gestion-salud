@@ -81,6 +81,8 @@ class CobroController extends StateNotifier<CobroState> {
     required String cuotaId,
     required String tarjetaId,
     required String cobradorUid,
+    required String nombreCobrador,
+    required String nombreCliente,
     required double monto,
     String? observacion,
   }) async {
@@ -90,6 +92,8 @@ class CobroController extends StateNotifier<CobroState> {
         cuotaId: cuotaId,
         tarjetaId: tarjetaId,
         cobradorUid: cobradorUid,
+        nombreCobrador: nombreCobrador,
+        nombreCliente: nombreCliente,
         monto: monto,
         observacion: observacion,
       );
@@ -105,6 +109,8 @@ class CobroController extends StateNotifier<CobroState> {
   Future<bool> registrarPago({
     required String tarjetaId,
     required String cobradorUid,
+    required String nombreCobrador,
+    required String nombreCliente,
     required double monto,
     String? observacion,
   }) async {
@@ -113,10 +119,49 @@ class CobroController extends StateNotifier<CobroState> {
       await _service.registrarPago(
         tarjetaId: tarjetaId,
         cobradorUid: cobradorUid,
+        nombreCobrador: nombreCobrador,
+        nombreCliente: nombreCliente,
         monto: monto,
         observacion: observacion,
       );
       state = state.copyWith(cargando: false, exito: 'Pago registrado.');
+      return true;
+    } catch (e) {
+      state = state.copyWith(cargando: false, error: e.toString());
+      return false;
+    }
+  }
+
+  // Cobrador solicita devolución durante ruta
+  Future<bool> solicitarDevolucionCobrador({
+    required String tarjetaId,
+    required String tarjetaProductoId,
+    required String codigoBarras,
+    required String asesoraUid,
+    required String nombreCliente,
+    required String nombreProducto,
+    required int cantidadDevuelta,
+    required double montoReembolso,
+    required String motivo,
+  }) async {
+    state = state.copyWith(cargando: true, error: null);
+    try {
+      final devolucion = DevolucionModel(
+        devolucionId: '',
+        tarjetaId: tarjetaId,
+        tarjetaProductoId: tarjetaProductoId,
+        codigoBarras: codigoBarras,
+        asesoraUid: asesoraUid,
+        nombreCliente: nombreCliente,
+        nombreProducto: nombreProducto,
+        cantidadDevuelta: cantidadDevuelta,
+        montoReembolso: montoReembolso,
+        motivo: motivo,
+        estado: EstadoDevolucion.pendiente,
+        fechaDevolucion: DateTime.now(),
+      );
+      await _service.solicitarDevolucionCobrador(devolucion);
+      state = state.copyWith(cargando: false, exito: 'Devolución registrada.');
       return true;
     } catch (e) {
       state = state.copyWith(cargando: false, error: e.toString());

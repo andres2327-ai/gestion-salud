@@ -59,18 +59,88 @@ class _AsesoraNuevaVentaScreenState
     super.dispose();
   }
 
+  // Pending products added manually (not from assigned stock)
+  final List<Map<String, dynamic>> _productosPendientes = [];
+
   double get _subtotal {
     final asignaciones = ref.read(asignacionProductoControllerProvider).asignaciones;
-    return asignaciones.fold(0.0, (sum, a) {
+    final fromAssigned = asignaciones.fold(0.0, (sum, a) {
       final qty = _cantidades[a.codigoBarras] ?? 0;
       return sum + (a.precioUnitario * qty);
     });
+    final fromPending = _productosPendientes.fold(
+      0.0,
+      (sum, p) => sum + ((p['precio'] as double) * (p['cantidad'] as int)),
+    );
+    return fromAssigned + fromPending;
   }
 
   double get _montoCuota => _numCuotas > 0 ? _subtotal / _numCuotas : 0;
 
   bool get _tieneProductos =>
-      _cantidades.values.any((q) => q > 0);
+      _cantidades.values.any((q) => q > 0) || _productosPendientes.isNotEmpty;
+
+  void _mostrarAgregarPendiente() {
+    final nombreCtrl = TextEditingController();
+    final precioCtrl = TextEditingController();
+    final cantidadCtrl = TextEditingController(text: '1');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Producto pendiente'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Agrega un producto que no tienes en tu inventario asignado. '
+              'Se sumará al total sin descontar stock.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nombreCtrl,
+              decoration: const InputDecoration(labelText: 'Nombre del producto'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            TextField(
+              controller: precioCtrl,
+              decoration: const InputDecoration(labelText: 'Precio unitario'),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            TextField(
+              controller: cantidadCtrl,
+              decoration: const InputDecoration(labelText: 'Cantidad'),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final nombre = nombreCtrl.text.trim();
+              final precio = double.tryParse(precioCtrl.text.replaceAll(',', '.')) ?? 0;
+              final cantidad = int.tryParse(cantidadCtrl.text) ?? 1;
+              if (nombre.isEmpty || precio <= 0 || cantidad <= 0) return;
+              setState(() {
+                _productosPendientes.add({
+                  'nombre': nombre,
+                  'precio': precio,
+                  'cantidad': cantidad,
+                });
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('Agregar'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _registrarVenta() async {
     if (!_formKey.currentState!.validate()) return;
@@ -104,9 +174,16 @@ class _AsesoraNuevaVentaScreenState
     for (final a in asignaciones) {
       final qty = _cantidades[a.codigoBarras] ?? 0;
       if (qty > 0) {
-        // Usamos un ProductoModel simulado desde la asignación
         ctrl.agregarProductoDesdeAsignacion(a, qty);
       }
+    }
+    // Añadir productos pendientes (no en inventario asignado)
+    for (final p in _productosPendientes) {
+      ctrl.agregarProductoPendiente(
+        nombre: p['nombre'] as String,
+        precioUnitario: p['precio'] as double,
+        cantidad: p['cantidad'] as int,
+      );
     }
 
     final tarjetaId = await ctrl.crearVenta(
@@ -359,6 +436,65 @@ class _AsesoraNuevaVentaScreenState
                 );
               }),
             ],
+
+            const SizedBox(height: 16),
+
+            // Pending products section
+            _SectionLabel(label: 'PRODUCTOS PENDIENTES'),
+            const SizedBox(height: 8),
+            if (_productosPendientes.isNotEmpty) ...[
+              ..._productosPendientes.asMap().entries.map((entry) {
+                final i = entry.key;
+                final p = entry.value;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withAlpha(80)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.pending_outlined, color: Colors.orange, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p['nombre'] as String,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                            Text(
+                              '${p['cantidad']}x \$${fmt.format((p['precio'] as double).toInt())}',
+                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.orange, size: 18),
+                        onPressed: () => setState(() => _productosPendientes.removeAt(i)),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton.icon(
+              onPressed: _mostrarAgregarPendiente,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Agregar producto pendiente'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orange,
+                side: const BorderSide(color: Colors.orange),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
 
             const SizedBox(height: 24),
 

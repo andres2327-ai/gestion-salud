@@ -47,62 +47,92 @@ class MainApp extends StatelessWidget {
   }
 }
 
-class RootRoute extends ConsumerWidget {
+class RootRoute extends ConsumerStatefulWidget {
   const RootRoute({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RootRoute> createState() => _RootRouteState();
+}
+
+class _RootRouteState extends ConsumerState<RootRoute> {
+  // Splash mínimo de 2 segundos al arrancar la app
+  bool _splashListo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _splashListo = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
 
-    // Mostrar pantalla de carga mientras se verifica autenticacion
-    if (authState.cargando && authState.firebaseUser == null) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.medical_services_outlined,
-                  size: 40,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(height: 24),
-              CircularProgressIndicator(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Cargando...',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      );
+    // Mostrar splash:
+    // 1) Durante los primeros 2 s de arranque
+    // 2) Mientras se procesa cualquier autenticación (login/verificación de perfil)
+    if (!_splashListo || authState.cargando) {
+      return const _SplashScreen();
     }
 
-    // Si el usuario esta autenticado, mostrar la app con solicitud de permisos
     if (authState.autenticado) {
       return const LocationPermissionWrapper(child: MainScreen());
     }
 
-    // Si no esta autenticado, mostrar login
     return const Scaffold(body: Login());
+  }
+}
+
+// ─── Splash screen ────────────────────────────────────────────────────────────
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A5C6B),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              width: 140,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'QUIERO SALUD',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'TU APP DE BIENESTAR',
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 11,
+                letterSpacing: 3,
+              ),
+            ),
+            const SizedBox(height: 48),
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

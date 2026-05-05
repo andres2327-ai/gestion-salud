@@ -76,7 +76,9 @@ class _CobradorTarjetaDetalleScreenState
 
   void _mostrarDialogoCobro() {
     final tarjeta = widget.tarjeta;
-    if (tarjeta.estado != EstadoTarjeta.activa) return;
+    final esCobrableAhora = tarjeta.estado == EstadoTarjeta.activa ||
+        tarjeta.estado == EstadoTarjeta.atrasada;
+    if (!esCobrableAhora) return;
 
     final montoCtrl = TextEditingController();
     final obsCtrl = TextEditingController();
@@ -197,11 +199,14 @@ class _CobradorTarjetaDetalleScreenState
                     return;
                   }
                   Navigator.pop(ctx);
+                  final perfil = ref.read(usuarioActualProvider);
                   final ok = await ref
                       .read(cobroControllerProvider.notifier)
                       .registrarPago(
                         tarjetaId: tarjeta.tarjetaId,
                         cobradorUid: widget.cobradorUid,
+                        nombreCobrador: perfil?.nombre ?? '',
+                        nombreCliente: tarjeta.nombreCliente,
                         monto: monto,
                         observacion: obsCtrl.text.trim().isEmpty
                             ? null
@@ -236,6 +241,156 @@ class _CobradorTarjetaDetalleScreenState
     );
   }
 
+  void _mostrarDialogoDevolucion() {
+    final tarjeta = widget.tarjeta;
+    TarjetaProductoModel? productoSeleccionado;
+    final cantidadCtrl = TextEditingController(text: '1');
+    final motivoCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1C3A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Registrar Devolución',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Selecciona el producto que el cliente devuelve.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<TarjetaProductoModel>(
+                initialValue: productoSeleccionado,
+                dropdownColor: const Color(0xFF1A1C3A),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Producto *',
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xFF0F1123),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items: tarjeta.productos
+                    .map((p) => DropdownMenuItem(
+                          value: p,
+                          child: Text(p.nombreProducto),
+                        ))
+                    .toList(),
+                onChanged: (v) => setModalState(() => productoSeleccionado = v),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: cantidadCtrl,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Cantidad a devolver',
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xFF0F1123),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: motivoCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Motivo de devolución *',
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xFF0F1123),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () async {
+                    final prod = productoSeleccionado;
+                    final cantidad = int.tryParse(cantidadCtrl.text) ?? 0;
+                    final motivo = motivoCtrl.text.trim();
+                    if (prod == null || cantidad <= 0 || motivo.isEmpty) {
+                      return;
+                    }
+                    Navigator.pop(ctx);
+                    final ok = await ref
+                        .read(cobroControllerProvider.notifier)
+                        .solicitarDevolucionCobrador(
+                          tarjetaId: tarjeta.tarjetaId,
+                          tarjetaProductoId: prod.id,
+                          codigoBarras: prod.codigoBarras,
+                          asesoraUid: tarjeta.asesoraUid,
+                          nombreCliente: tarjeta.nombreCliente,
+                          nombreProducto: prod.nombreProducto,
+                          cantidadDevuelta: cantidad,
+                          montoReembolso: prod.precioVenta * cantidad,
+                          motivo: motivo,
+                        );
+                    if (context.mounted) {
+                      _snack(
+                        ok
+                            ? 'Devolución enviada al admin para aprobación'
+                            : 'Error al registrar la devolución',
+                        error: !ok,
+                      );
+                    }
+                  },
+                  child: const Text(
+                    'Enviar Devolución',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _snack(String msg, {bool error = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -255,7 +410,8 @@ class _CobradorTarjetaDetalleScreenState
         ? (pagado / tarjeta.totalVenta).clamp(0.0, 1.0)
         : 0.0;
     final tieneCoords = tarjeta.latitud != 0 || tarjeta.longitud != 0;
-    final esActiva = tarjeta.estado == EstadoTarjeta.activa;
+    final esCobrable = tarjeta.estado == EstadoTarjeta.activa ||
+        tarjeta.estado == EstadoTarjeta.atrasada;
 
     return Scaffold(
       appBar: AppBar(
@@ -552,55 +708,81 @@ class _CobradorTarjetaDetalleScreenState
               color: Color(0xFF1A1C3A),
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Comenzar Ruta
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _buscandoRuta || !tieneCoords
-                        ? null
-                        : _comenzarRuta,
-                    icon: _buscandoRuta
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.blueAccent,
-                            ),
-                          )
-                        : const Icon(Icons.navigation_outlined, size: 18),
-                    label: const Text('Comenzar Ruta'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blueAccent,
-                      side: BorderSide(
-                        color: tieneCoords
-                            ? Colors.blueAccent
-                            : Colors.grey,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Agregar Cobro
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: esActiva ? _mostrarDialogoCobro : null,
-                    icon: const Icon(Icons.add_card, size: 18),
-                    label: const Text('Agregar Cobro'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.tealAccent,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    // Comenzar Ruta
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _buscandoRuta || !tieneCoords
+                            ? null
+                            : _comenzarRuta,
+                        icon: _buscandoRuta
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.blueAccent,
+                                ),
+                              )
+                            : const Icon(Icons.navigation_outlined, size: 18),
+                        label: const Text('Ruta'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blueAccent,
+                          side: BorderSide(
+                            color: tieneCoords ? Colors.blueAccent : Colors.grey,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    // Devolución
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: esCobrable && tarjeta.productos.isNotEmpty
+                            ? _mostrarDialogoDevolucion
+                            : null,
+                        icon: const Icon(Icons.reply_outlined, size: 18),
+                        label: const Text('Devolución'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange,
+                          side: BorderSide(
+                            color: esCobrable && tarjeta.productos.isNotEmpty
+                                ? Colors.orange
+                                : Colors.grey,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Agregar Cobro
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: esCobrable ? _mostrarDialogoCobro : null,
+                        icon: const Icon(Icons.add_card, size: 18),
+                        label: const Text('Cobrar'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.tealAccent,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -672,6 +854,7 @@ class _EstadoBadgeDetalle extends StatelessWidget {
       EstadoTarjeta.activa => ('Activa', Colors.white),
       EstadoTarjeta.pagada => ('Pagada', Colors.lightBlueAccent),
       EstadoTarjeta.vencida => ('Vencida', Colors.redAccent),
+      EstadoTarjeta.atrasada => ('Atrasada', Colors.orange),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

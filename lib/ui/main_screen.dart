@@ -14,6 +14,8 @@ import 'asesora_productos_screen.dart';
 import 'asesora_perfil_screen.dart';
 import 'cobrador_home_screen.dart';
 import 'cobrador_perfil_screen.dart';
+import 'admin_quincena_screen.dart';
+import 'cobrador_cierre_dia_screen.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -64,6 +66,7 @@ class _AdminNav extends StatelessWidget {
       const AdminVentasScreen(),
       const AsesoresScreen(),
       const AdminDevolucionesScreen(),
+      const AdminQuincenaScreen(),
       const ReportesScreen(),
     ];
     return Scaffold(
@@ -88,6 +91,10 @@ class _AdminNav extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.assignment_return_outlined),
             label: 'Devoluc.',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.payments_outlined),
+            label: 'Quincena',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
@@ -150,6 +157,7 @@ class _CobradorNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final screens = [
       const CobradorHomeScreen(),
+      const CobradorCierreDiaScreen(),
       const CobradorPerfilScreen(),
     ];
     return Scaffold(
@@ -161,6 +169,10 @@ class _CobradorNav extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.account_balance_wallet_outlined),
             label: 'Mis Cobros',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.summarize_outlined),
+            label: 'Cierre',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

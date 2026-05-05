@@ -126,6 +126,8 @@ class _TarjetaCard extends StatelessWidget {
         return Colors.blue;
       case EstadoTarjeta.vencida:
         return cs.error;
+      case EstadoTarjeta.atrasada:
+        return Colors.orange;
       case EstadoTarjeta.activa:
         return tarjeta.saldoPendiente > 0 ? Colors.orange : Colors.green;
     }
@@ -136,7 +138,9 @@ class _TarjetaCard extends StatelessWidget {
       case EstadoTarjeta.pagada:
         return 'Pagado';
       case EstadoTarjeta.vencida:
-        return 'Atrasado';
+        return 'Vencida';
+      case EstadoTarjeta.atrasada:
+        return 'Atrasada';
       case EstadoTarjeta.activa:
         return tarjeta.saldoPendiente > 0 ? 'Al día' : 'Pagado';
     }
