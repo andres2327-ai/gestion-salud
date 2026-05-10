@@ -9,46 +9,24 @@ class ComisionService {
 
   static const double kPorcentajeComision = 0.20;
 
-  // ─── Crear comisiones ─────────────────────────────────────────────────────
+  // ─── Crear comisión ───────────────────────────────────────────────────────
 
-  Future<void> registrarComisionVenta({
+  Future<void> registrarComision({
+    required TipoComision tipo,
     required String usuarioUid,
     required String nombreUsuario,
     required String tarjetaId,
     required String nombreCliente,
-    required double totalVenta,
+    required double montoBase,
   }) async {
-    final comision = totalVenta * kPorcentajeComision;
+    final comision = montoBase * kPorcentajeComision;
     await _col.doc().set({
       'usuario_uid': usuarioUid,
       'nombre_usuario': nombreUsuario,
-      'tipo': TipoComision.venta.name,
+      'tipo': tipo.name,
       'tarjeta_id': tarjetaId,
       'nombre_cliente': nombreCliente,
-      'monto_base': totalVenta,
-      'porcentaje': kPorcentajeComision,
-      'monto_comision': comision,
-      'estado': EstadoComision.pendiente.name,
-      'fecha': FieldValue.serverTimestamp(),
-      'fecha_pago': null,
-    });
-  }
-
-  Future<void> registrarComisionCobro({
-    required String usuarioUid,
-    required String nombreUsuario,
-    required String tarjetaId,
-    required String nombreCliente,
-    required double montoCobrado,
-  }) async {
-    final comision = montoCobrado * kPorcentajeComision;
-    await _col.doc().set({
-      'usuario_uid': usuarioUid,
-      'nombre_usuario': nombreUsuario,
-      'tipo': TipoComision.cobro.name,
-      'tarjeta_id': tarjetaId,
-      'nombre_cliente': nombreCliente,
-      'monto_base': montoCobrado,
+      'monto_base': montoBase,
       'porcentaje': kPorcentajeComision,
       'monto_comision': comision,
       'estado': EstadoComision.pendiente.name,

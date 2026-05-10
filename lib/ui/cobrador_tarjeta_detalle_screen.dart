@@ -354,7 +354,7 @@ class _CobradorTarjetaDetalleScreenState
                     Navigator.pop(ctx);
                     final ok = await ref
                         .read(cobroControllerProvider.notifier)
-                        .solicitarDevolucionCobrador(
+                        .solicitarDevolucion(
                           tarjetaId: tarjeta.tarjetaId,
                           tarjetaProductoId: prod.id,
                           codigoBarras: prod.codigoBarras,
@@ -364,6 +364,7 @@ class _CobradorTarjetaDetalleScreenState
                           cantidadDevuelta: cantidad,
                           montoReembolso: prod.precioVenta * cantidad,
                           motivo: motivo,
+                          esCobrador: true,
                         );
                     if (context.mounted) {
                       _snack(

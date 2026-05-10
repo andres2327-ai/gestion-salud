@@ -1,6 +1,7 @@
 // lib/services/cobro_service.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/comision_model.dart';
 import '../models/tarjeta_model.dart';
 import 'comision_service.dart';
 
@@ -53,12 +54,13 @@ class CobroService {
     await batch.commit();
 
     // Registrar comisión del cobrador (20%)
-    await _comisionService.registrarComisionCobro(
+    await _comisionService.registrarComision(
+      tipo: TipoComision.cobro,
       usuarioUid: cobradorUid,
       nombreUsuario: nombreCobrador,
       tarjetaId: tarjetaId,
       nombreCliente: nombreCliente,
-      montoCobrado: monto,
+      montoBase: monto,
     );
 
     // Verificar si la tarjeta quedó totalmente pagada
@@ -137,26 +139,16 @@ class CobroService {
     await batch.commit();
 
     // Registrar comisión del cobrador (20%)
-    await _comisionService.registrarComisionCobro(
+    await _comisionService.registrarComision(
+      tipo: TipoComision.cobro,
       usuarioUid: cobradorUid,
       nombreUsuario: nombreCobrador,
       tarjetaId: tarjetaId,
       nombreCliente: nombreCliente,
-      montoCobrado: monto,
+      montoBase: monto,
     );
 
     await _verificarTarjetaPagada(tarjetaId);
-  }
-
-  // Solicitar devolución (cobrador durante ruta)
-  Future<String> solicitarDevolucionCobrador(DevolucionModel devolucion) async {
-    final ref = _devCol.doc();
-    await ref.set({
-      ...devolucion.toMap(),
-      'estado': EstadoDevolucion.pendiente.name,
-      'origen': 'cobrador',
-    });
-    return ref.id;
   }
 
   // Stream de pagos de una tarjeta (sin orderBy para evitar índice compuesto)
@@ -182,12 +174,13 @@ class CobroService {
 
   // ─── DEVOLUCIONES ─────────────────────────────────────────────────────────
 
-  // Solicitar devolución (asesora)
-  Future<String> solicitarDevolucion(DevolucionModel devolucion) async {
+  // Solicitar devolución (asesora o cobrador; pasa origen: 'cobrador' si aplica)
+  Future<String> solicitarDevolucion(DevolucionModel devolucion, {String? origen}) async {
     final ref = _devCol.doc();
     await ref.set({
       ...devolucion.toMap(),
       'estado': EstadoDevolucion.pendiente.name,
+      if (origen case final o?) 'origen': o,
     });
     return ref.id;
   }

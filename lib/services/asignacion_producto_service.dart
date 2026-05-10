@@ -56,25 +56,6 @@ class AsignacionProductoService {
     }
   }
 
-  // Revertir vendidos al aprobar devolución
-  Future<void> revertirVenta(
-    String asesoraUid,
-    String codigoBarras,
-    int cantidad,
-  ) async {
-    final snap = await _col
-        .where('asesora_uid', isEqualTo: asesoraUid)
-        .where('codigo_barras', isEqualTo: codigoBarras)
-        .where('activa', isEqualTo: true)
-        .get();
-
-    if (snap.docs.isNotEmpty) {
-      await _col.doc(snap.docs.first.id).update({
-        'cantidad_vendida': FieldValue.increment(-cantidad),
-      });
-    }
-  }
-
   // Eliminar asignación
   Future<void> desactivarAsignacion(String asignacionId) async {
     await _col.doc(asignacionId).update({'activa': false});

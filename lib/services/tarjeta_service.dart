@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/tarjeta_model.dart';
+import '../models/comision_model.dart';
 import 'comision_service.dart';
 
 class TarjetaService {
@@ -53,12 +54,13 @@ class TarjetaService {
     await batch.commit();
 
     // Registrar comisión de la asesora (20% del total de venta)
-    await _comisionService.registrarComisionVenta(
+    await _comisionService.registrarComision(
+      tipo: TipoComision.venta,
       usuarioUid: tarjeta.asesoraUid,
       nombreUsuario: tarjeta.nombreAsesora,
       tarjetaId: tarjetaId,
       nombreCliente: tarjeta.nombreCliente,
-      totalVenta: tarjeta.totalVenta,
+      montoBase: tarjeta.totalVenta,
     );
 
     return tarjetaId;
@@ -87,41 +89,6 @@ class TarjetaService {
       lista.sort((a, b) => b.fechaVenta.compareTo(a.fechaVenta));
       return lista;
     });
-  }
-
-  // Tarjetas del mes actual
-  Future<List<TarjetaModel>> tarjetasDelMes() async {
-    final ahora = DateTime.now();
-    final inicio = DateTime(ahora.year, ahora.month, 1);
-    final fin = DateTime(ahora.year, ahora.month + 1, 1);
-
-    final snap = await _col
-        .where(
-          'fecha_venta',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(inicio),
-        )
-        .where('fecha_venta', isLessThan: Timestamp.fromDate(fin))
-        .orderBy('fecha_venta', descending: true)
-        .get();
-
-    return snap.docs.map((d) => TarjetaModel.fromMap(d.data(), d.id)).toList();
-  }
-
-  // Tarjetas de los últimos N días
-  Future<List<TarjetaModel>> tarjetasUltimosDias(int dias) async {
-    final desde = DateTime.now().subtract(Duration(days: dias));
-    final snap = await _col
-        .where('fecha_venta', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
-        .orderBy('fecha_venta', descending: true)
-        .get();
-    return snap.docs.map((d) => TarjetaModel.fromMap(d.data(), d.id)).toList();
-  }
-
-  // Obtener tarjeta por id
-  Future<TarjetaModel?> obtenerTarjeta(String tarjetaId) async {
-    final doc = await _col.doc(tarjetaId).get();
-    if (!doc.exists) return null;
-    return TarjetaModel.fromMap(doc.data()!, doc.id);
   }
 
   // Actualizar foto de la tarjeta

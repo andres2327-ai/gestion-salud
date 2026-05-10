@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
 
@@ -79,7 +78,7 @@ class AuthController extends StateNotifier<AuthState> {
     } on FirebaseException catch (e) {
       state = AuthState(
         cargando: false,
-        error: _mensajeError(e.code ?? 'unknown'),
+        error: _mensajeError(e.code),
       );
     } catch (e) {
       state = AuthState(

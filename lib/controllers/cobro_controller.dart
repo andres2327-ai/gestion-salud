@@ -132,43 +132,6 @@ class CobroController extends StateNotifier<CobroState> {
     }
   }
 
-  // Cobrador solicita devolución durante ruta
-  Future<bool> solicitarDevolucionCobrador({
-    required String tarjetaId,
-    required String tarjetaProductoId,
-    required String codigoBarras,
-    required String asesoraUid,
-    required String nombreCliente,
-    required String nombreProducto,
-    required int cantidadDevuelta,
-    required double montoReembolso,
-    required String motivo,
-  }) async {
-    state = state.copyWith(cargando: true, error: null);
-    try {
-      final devolucion = DevolucionModel(
-        devolucionId: '',
-        tarjetaId: tarjetaId,
-        tarjetaProductoId: tarjetaProductoId,
-        codigoBarras: codigoBarras,
-        asesoraUid: asesoraUid,
-        nombreCliente: nombreCliente,
-        nombreProducto: nombreProducto,
-        cantidadDevuelta: cantidadDevuelta,
-        montoReembolso: montoReembolso,
-        motivo: motivo,
-        estado: EstadoDevolucion.pendiente,
-        fechaDevolucion: DateTime.now(),
-      );
-      await _service.solicitarDevolucionCobrador(devolucion);
-      state = state.copyWith(cargando: false, exito: 'Devolución registrada.');
-      return true;
-    } catch (e) {
-      state = state.copyWith(cargando: false, error: e.toString());
-      return false;
-    }
-  }
-
   Future<void> cargarCuotasCobrador(String cobradorUid) async {
     state = state.copyWith(cargando: true);
     try {
@@ -199,7 +162,7 @@ class CobroController extends StateNotifier<CobroState> {
     });
   }
 
-  // Asesora solicita devolución
+  // Solicitar devolución (asesora o cobrador; pasa esCobrador: true desde ruta)
   Future<bool> solicitarDevolucion({
     required String tarjetaId,
     required String tarjetaProductoId,
@@ -210,6 +173,7 @@ class CobroController extends StateNotifier<CobroState> {
     required int cantidadDevuelta,
     required double montoReembolso,
     required String motivo,
+    bool esCobrador = false,
   }) async {
     state = state.copyWith(cargando: true, error: null);
     try {
@@ -227,8 +191,14 @@ class CobroController extends StateNotifier<CobroState> {
         estado: EstadoDevolucion.pendiente,
         fechaDevolucion: DateTime.now(),
       );
-      await _service.solicitarDevolucion(devolucion);
-      state = state.copyWith(cargando: false, exito: 'Devolución solicitada.');
+      await _service.solicitarDevolucion(
+        devolucion,
+        origen: esCobrador ? 'cobrador' : null,
+      );
+      state = state.copyWith(
+        cargando: false,
+        exito: esCobrador ? 'Devolución registrada.' : 'Devolución solicitada.',
+      );
       return true;
     } catch (e) {
       state = state.copyWith(cargando: false, error: e.toString());
