@@ -147,69 +147,87 @@ class LocationPermissionWrapper extends StatefulWidget {
       _LocationPermissionWrapperState();
 }
 
-class _LocationPermissionWrapperState extends State<LocationPermissionWrapper> {
-  bool _hasCheckedPermissions = false;
-  bool _permissionGranted = false;
+class _LocationPermissionWrapperState extends State<LocationPermissionWrapper>
+    with WidgetsBindingObserver {
+  // null = still checking, false = denied, true = granted
+  bool? _permissionGranted;
+  bool _verificando = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _solicitarPermisos();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Re-check automatically when the app returns from background (e.g., after
+  // the user enables GPS or grants permission in system settings).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _permissionGranted != true) {
+      _solicitarPermisos();
+    }
+  }
+
   Future<void> _solicitarPermisos() async {
-    if (_hasCheckedPermissions) return;
+    if (_verificando) return;
+    setState(() => _verificando = true);
 
     final gpsService = GpsService();
-    final serviceEnabled = await gpsService.isLocationServiceEnabled();
 
+    final serviceEnabled = await gpsService.isLocationServiceEnabled();
     if (!mounted) return;
 
     if (!serviceEnabled) {
-      _mostrarDialogoUbicacion();
       setState(() {
-        _hasCheckedPermissions = true;
         _permissionGranted = false;
+        _verificando = false;
       });
+      _mostrarDialogoGpsApagado();
       return;
     }
 
     final granted = await gpsService.solicitarPermisos();
-
     if (!mounted) return;
+
+    setState(() {
+      _permissionGranted = granted;
+      _verificando = false;
+    });
 
     if (!granted) {
       _mostrarDialogoPermisoRequerido();
     }
-
-    setState(() {
-      _hasCheckedPermissions = true;
-      _permissionGranted = granted;
-    });
   }
 
-  void _mostrarDialogoUbicacion() {
+  void _mostrarDialogoGpsApagado() {
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Ubicación Requerida'),
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        title: const Text('GPS apagado'),
         content: const Text(
-          'Para usar la función de rutas, necesitamos acceso a tu ubicación. '
-          'Por favor, habilita la ubicación en la configuración de tu dispositivo.',
+          'Para usar la función de rutas necesitamos acceso a tu ubicación. '
+          'Activa el GPS en la configuración de tu dispositivo y regresa a la app.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Ahora No'),
           ),
           ElevatedButton(
             onPressed: () async {
-              final gpsService = GpsService();
-              await gpsService.abrirConfiguracionUbicacion();
-              if (mounted) Navigator.pop(context);
+              Navigator.pop(ctx);
+              await GpsService().abrirConfiguracionUbicacion();
+              // didChangeAppLifecycleState will re-check when the user returns
             },
-            child: const Text('Abrir Configuración'),
+            child: const Text('Activar GPS'),
           ),
         ],
       ),
@@ -219,23 +237,22 @@ class _LocationPermissionWrapperState extends State<LocationPermissionWrapper> {
   void _mostrarDialogoPermisoRequerido() {
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Permiso de ubicación necesario'),
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Permiso de ubicación'),
         content: const Text(
-          'La aplicación necesita permiso de ubicación para funcionar correctamente. '
-          'Por favor concede el permiso y reinicia la aplicación si es necesario.',
+          'La aplicación necesita permiso de ubicación para registrar ventas '
+          'y calcular rutas. Otorga el permiso en ajustes y regresa.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Cerrar'),
           ),
           ElevatedButton(
             onPressed: () async {
-              final gpsService = GpsService();
-              await gpsService.abrirConfiguracionApp();
-              if (mounted) Navigator.pop(context);
+              Navigator.pop(ctx);
+              await GpsService().abrirConfiguracionApp();
             },
             child: const Text('Abrir ajustes'),
           ),
@@ -246,45 +263,71 @@ class _LocationPermissionWrapperState extends State<LocationPermissionWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_hasCheckedPermissions) {
+    // Still checking
+    if (_permissionGranted == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    if (!_permissionGranted) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Permisos de ubicación')),
-        body: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'La aplicación necesita permiso de ubicación para continuar.',
-                style: TextStyle(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _solicitarPermisos,
-                child: const Text('Solicitar permisos nuevamente'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () async {
-                  final gpsService = GpsService();
-                  await gpsService.abrirConfiguracionApp();
-                },
-                child: const Text('Abrir ajustes de la aplicación'),
-              ),
-            ],
-          ),
-        ),
-      );
+    // Granted → show the real app
+    if (_permissionGranted == true) {
+      return widget.child;
     }
 
-    return widget.child;
+    // Denied → show fallback screen with retry
+    return Scaffold(
+      appBar: AppBar(title: const Text('Permisos de ubicación')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(Icons.location_off_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 20),
+            const Text(
+              'La aplicación necesita acceso a tu ubicación para funcionar correctamente.',
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Si acabas de activar el GPS o dar el permiso, toca "Verificar de nuevo".',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _verificando ? null : _solicitarPermisos,
+              icon: _verificando
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              label: const Text('Verificar de nuevo'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await GpsService().abrirConfiguracionUbicacion();
+              },
+              icon: const Icon(Icons.gps_fixed),
+              label: const Text('Activar GPS'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await GpsService().abrirConfiguracionApp();
+              },
+              icon: const Icon(Icons.settings_outlined),
+              label: const Text('Abrir ajustes de la app'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

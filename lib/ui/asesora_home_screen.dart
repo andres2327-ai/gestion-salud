@@ -121,11 +121,12 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
         )
         .fold<double>(0, (s, d) => s + d.montoReembolso);
 
-    final totalMes =
-        (totalVentas - totalDevoluciones).clamp(0.0, double.infinity);
+    // Show 20% commission on net sales (not the total sale amount)
+    final gananciasMes =
+        ((totalVentas - totalDevoluciones) * 0.20).clamp(0.0, double.infinity);
     final metaMes = perfil.metaMensual;
     final progreso =
-        metaMes > 0 ? (totalMes / metaMes).clamp(0.0, 1.0) : 0.0;
+        metaMes > 0 ? (gananciasMes / metaMes).clamp(0.0, 1.0) : 0.0;
 
     final fmt = NumberFormat('#,###', 'es_CO');
 
@@ -191,7 +192,7 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Mi Meta del Mes',
+                          'Mis Ganancias del Mes (20%)',
                           style: TextStyle(color: Colors.white70, fontSize: 13),
                         ),
                         GestureDetector(
@@ -206,7 +207,7 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '\$${fmt.format(totalMes)} / \$${fmt.format(metaMes)}',
+                      '\$${fmt.format(gananciasMes)} / \$${fmt.format(metaMes)}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 26,

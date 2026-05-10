@@ -28,14 +28,21 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
   }
 
   Future<void> _cargar() async {
+    if (!mounted) return;
     setState(() => _cargando = true);
-    final lista = await ref
-        .read(comisionControllerProvider.notifier)
-        .cargarQuincenaTodos();
-    setState(() {
-      _comisiones = lista;
-      _cargando = false;
-    });
+    try {
+      final lista = await ref
+          .read(comisionControllerProvider.notifier)
+          .cargarQuincenaTodos();
+      if (mounted) {
+        setState(() {
+          _comisiones = lista;
+          _cargando = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _cargando = false);
+    }
   }
 
   // Group commissions by user
