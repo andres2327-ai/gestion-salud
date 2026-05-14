@@ -59,11 +59,26 @@ class AsignacionProductoService {
     }
   }
 
-  // Eliminar asignación
+  // Eliminar asignación individual
   Future<void> desactivarAsignacion(String asignacionId) async {
     await _col
         .doc(asignacionId)
         .update({'activa': false})
         .timeout(const Duration(seconds: 5), onTimeout: () {});
+  }
+
+  // Desactivar todas las asignaciones activas de un producto eliminado
+  Future<void> desactivarAsignacionesPorProducto(String codigoBarras) async {
+    final snap = await _col
+        .where('codigo_barras', isEqualTo: codigoBarras)
+        .where('activa', isEqualTo: true)
+        .get();
+    if (snap.docs.isEmpty) return;
+    final db = FirebaseFirestore.instance;
+    final batch = db.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'activa': false});
+    }
+    await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
   }
 }

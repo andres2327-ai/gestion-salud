@@ -82,7 +82,10 @@ final usuarioControllerProvider =
 /// Productos / Inventario
 final productoControllerProvider =
     StateNotifierProvider<ProductoController, ProductoState>((ref) {
-      return ProductoController(ref.watch(productoServiceProvider));
+      return ProductoController(
+        ref.watch(productoServiceProvider),
+        ref.watch(asignacionProductoServiceProvider),
+      );
     });
 
 /// Tarjetas (ventas) — se auto-carga según el rol en los widgets

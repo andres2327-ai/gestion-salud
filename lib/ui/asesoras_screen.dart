@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers.dart';
 import '../models/usuario_model.dart';
+import '../utils/formato_helper.dart';
 import 'admin_asignar_productos_screen.dart';
 import 'admin_asignar_tarjetas_screen.dart';
 
@@ -159,9 +160,7 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                 CircleAvatar(
                   backgroundColor: colorScheme.primaryContainer,
                   child: Text(
-                    usuario.nombre.isNotEmpty
-                        ? usuario.nombre[0].toUpperCase()
-                        : '?',
+                    FormatoHelper.iniciales(usuario.nombre),
                     style: TextStyle(
                       color: colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.bold,

@@ -62,8 +62,7 @@ class _AsesoraNuevaVentaScreenState
   // Pending products added manually (not from assigned stock)
   final List<Map<String, dynamic>> _productosPendientes = [];
 
-  double get _subtotal {
-    final asignaciones = ref.read(asignacionProductoControllerProvider).asignaciones;
+  double _calcSubtotal(List<AsignacionProductoModel> asignaciones) {
     final fromAssigned = asignaciones.fold(0.0, (sum, a) {
       final qty = _cantidades[a.codigoBarras] ?? 0;
       return sum + (a.precioUnitario * qty);
@@ -74,8 +73,6 @@ class _AsesoraNuevaVentaScreenState
     );
     return fromAssigned + fromPending;
   }
-
-  double get _montoCuota => _numCuotas > 0 ? _subtotal / _numCuotas : 0;
 
   bool get _tieneProductos =>
       _cantidades.values.any((q) => q > 0) || _productosPendientes.isNotEmpty;
@@ -201,15 +198,10 @@ class _AsesoraNuevaVentaScreenState
           : _descripcionCtrl.text.trim(),
     );
 
-    // Actualizar cantidades vendidas en asignaciones
     if (tarjetaId != null) {
-      final service = ref.read(asignacionProductoServiceProvider);
-      for (final a in asignaciones) {
-        final qty = _cantidades[a.codigoBarras] ?? 0;
-        if (qty > 0) {
-          await service.registrarVenta(widget.asesoraUid, a.codigoBarras, qty);
-        }
-      }
+      await ref
+          .read(asignacionProductoControllerProvider.notifier)
+          .registrarVentas(widget.asesoraUid, _cantidades);
     }
 
     setState(() => _guardando = false);
@@ -235,6 +227,8 @@ class _AsesoraNuevaVentaScreenState
   @override
   Widget build(BuildContext context) {
     final asignaciones = ref.watch(asignacionProductoControllerProvider).asignaciones;
+    final subtotal = _calcSubtotal(asignaciones);
+    final montoCuota = _numCuotas > 0 ? subtotal / _numCuotas : 0.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -580,7 +574,7 @@ class _AsesoraNuevaVentaScreenState
                         style: TextStyle(color: Colors.grey),
                       ),
                       Text(
-                        '\$${fmt.format(_subtotal)}',
+                        '\$${fmt.format(subtotal)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -597,7 +591,7 @@ class _AsesoraNuevaVentaScreenState
                         style: const TextStyle(color: Colors.grey),
                       ),
                       Text(
-                        '\$${fmt.format(_montoCuota)}',
+                        '\$${fmt.format(montoCuota)}',
                         style: const TextStyle(
                           color: Colors.tealAccent,
                           fontWeight: FontWeight.bold,

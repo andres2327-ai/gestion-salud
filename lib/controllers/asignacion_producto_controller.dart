@@ -86,6 +86,14 @@ class AsignacionProductoController
     }
   }
 
+  Future<void> registrarVentas(String asesoraUid, Map<String, int> cantidades) async {
+    for (final entry in cantidades.entries) {
+      if (entry.value > 0) {
+        await _service.registrarVenta(asesoraUid, entry.key, entry.value);
+      }
+    }
+  }
+
   void limpiarMensajes() {
     state = state.copyWith(error: null, exito: null);
   }

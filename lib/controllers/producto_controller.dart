@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/producto_model.dart';
 import '../services/producto_service.dart';
+import '../services/asignacion_producto_service.dart';
 
 class ProductoState {
   final List<ProductoModel> productos;
@@ -47,9 +48,11 @@ class ProductoState {
 
 class ProductoController extends StateNotifier<ProductoState> {
   final ProductoService _service;
+  final AsignacionProductoService _asignacionService;
   StreamSubscription<List<ProductoModel>>? _sub;
 
-  ProductoController(this._service) : super(const ProductoState()) {
+  ProductoController(this._service, this._asignacionService)
+      : super(const ProductoState()) {
     cargar();
   }
 
@@ -114,20 +117,26 @@ class ProductoController extends StateNotifier<ProductoState> {
     }
   }
 
-  // Desactivar producto
+  // Desactivar producto y limpiar asignaciones activas
   Future<void> desactivarProducto(String codigoBarras) async {
     try {
-      await _service.desactivarProducto(codigoBarras);
+      await Future.wait([
+        _service.desactivarProducto(codigoBarras),
+        _asignacionService.desactivarAsignacionesPorProducto(codigoBarras),
+      ]);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
   }
 
-  // Eliminar producto permanentemente
+  // Eliminar producto permanentemente y limpiar asignaciones activas
   Future<bool> eliminarProducto(String codigoBarras) async {
     state = state.copyWith(cargando: true, error: null);
     try {
-      await _service.eliminarProducto(codigoBarras);
+      await Future.wait([
+        _service.eliminarProducto(codigoBarras),
+        _asignacionService.desactivarAsignacionesPorProducto(codigoBarras),
+      ]);
       state = state.copyWith(exito: 'Producto eliminado.');
       return true;
     } catch (e) {

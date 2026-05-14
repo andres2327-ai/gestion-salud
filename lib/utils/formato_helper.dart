@@ -73,4 +73,13 @@ class FormatoHelper {
   static String formatearMontoCompleto(double valor) {
     return '\$${formatearMiles(valor)}';
   }
+
+  /// Genera las iniciales de un nombre (máximo 2 caracteres)
+  /// Ejemplo: "Juan Pérez" -> "JP" | "Ana" -> "A"
+  static String iniciales(String nombre) {
+    final partes = nombre.trim().split(' ').where((p) => p.isNotEmpty).toList();
+    if (partes.isEmpty) return '?';
+    if (partes.length == 1) return partes[0][0].toUpperCase();
+    return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
+  }
 }

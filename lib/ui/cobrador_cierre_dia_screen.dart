@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/tarjeta_model.dart';
 import '../models/comision_model.dart';
+import '../services/comision_service.dart';
 
 class CobradorCierreDiaScreen extends ConsumerStatefulWidget {
   const CobradorCierreDiaScreen({super.key});
@@ -413,8 +414,8 @@ class _CobradorCierreDiaScreenState
             _ResumenRow(
               icon: Icons.percent,
               color: Colors.purple,
-              label: 'Tu comisión (20%)',
-              value: '\$${fmt2.format(totalCobrado * 0.20)}',
+              label: 'Tu comisión (${(ComisionService.kPorcentajeComision * 100).toInt()}%)',
+              value: '\$${fmt2.format(totalCobrado * ComisionService.kPorcentajeComision)}',
             ),
             const SizedBox(height: 8),
             Text(
