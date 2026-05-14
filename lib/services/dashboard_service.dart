@@ -27,65 +27,42 @@ class DashboardService {
     final ahora = DateTime.now();
     final inicioHoy = DateTime(ahora.year, ahora.month, ahora.day);
     final finHoy = inicioHoy.add(const Duration(days: 1));
+    final tsInicio = Timestamp.fromDate(inicioHoy);
+    final tsFin = Timestamp.fromDate(finHoy);
 
-    // Ventas de hoy
-    final ventasHoySnap = await _db
-        .collection('tarjetas')
-        .where(
-          'fecha_venta',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy),
-        )
-        .where('fecha_venta', isLessThan: Timestamp.fromDate(finHoy))
-        .get();
+    // Todas las queries en paralelo — una sola ronda de red
+    final results = await Future.wait([
+      _db.collection('tarjetas')
+          .where('fecha_venta', isGreaterThanOrEqualTo: tsInicio)
+          .where('fecha_venta', isLessThan: tsFin)
+          .get(),
+      _db.collection('tarjetas')
+          .where('estado', isEqualTo: 'activa')
+          .get(),
+      _db.collection('productos')
+          .where('activo', isEqualTo: true)
+          .get(),
+      _db.collection('usuarios')
+          .where('rol', isEqualTo: 'asesora')
+          .where('activo', isEqualTo: true)
+          .get(),
+      _db.collection('devoluciones')
+          .where('fecha_devolucion', isGreaterThanOrEqualTo: tsInicio)
+          .where('fecha_devolucion', isLessThan: tsFin)
+          .get(),
+      _db.collection('tarjetas')
+          .orderBy('fecha_venta', descending: true)
+          .limit(10)
+          .get(),
+    ]);
 
-    final ventasHoy = ventasHoySnap.docs.fold<double>(
-      0,
-      (sum, d) => sum + (d['total_venta'] ?? 0).toDouble(),
-    );
+    final ventasHoy = results[0].docs.fold<double>(
+      0, (s, d) => s + (d['total_venta'] ?? 0).toDouble());
 
-    // Monto pendiente total
-    final pendientesSnap = await _db
-        .collection('tarjetas')
-        .where('estado', isEqualTo: 'activa')
-        .get();
+    final montoPendiente = results[1].docs.fold<double>(
+      0, (s, d) => s + (d['saldo_pendiente'] ?? 0).toDouble());
 
-    final montoPendiente = pendientesSnap.docs.fold<double>(
-      0,
-      (sum, d) => sum + (d['saldo_pendiente'] ?? 0).toDouble(),
-    );
-
-    // Cantidad de productos en stock
-    final productosSnap = await _db
-        .collection('productos')
-        .where('activo', isEqualTo: true)
-        .get();
-    final productosStock = productosSnap.docs.length;
-
-    // Asesoras activas
-    final asesorasSnap = await _db
-        .collection('usuarios')
-        .where('rol', isEqualTo: 'asesora')
-        .where('activo', isEqualTo: true)
-        .get();
-
-    // Devoluciones hoy
-    final devSnap = await _db
-        .collection('devoluciones')
-        .where(
-          'fecha_devolucion',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy),
-        )
-        .where('fecha_devolucion', isLessThan: Timestamp.fromDate(finHoy))
-        .get();
-
-    // Actividad reciente (últimas 10 tarjetas)
-    final actividadSnap = await _db
-        .collection('tarjetas')
-        .orderBy('fecha_venta', descending: true)
-        .limit(10)
-        .get();
-
-    final actividad = actividadSnap.docs.map((d) {
+    final actividad = results[5].docs.map((d) {
       final data = d.data();
       return {
         'tipo': 'venta',
@@ -99,9 +76,9 @@ class DashboardService {
     return DashboardStats(
       ventasHoy: ventasHoy,
       montoPendienteTotal: montoPendiente,
-      productosEnStock: productosStock,
-      asesorasActivas: asesorasSnap.docs.length,
-      devolucionesHoy: devSnap.docs.length,
+      productosEnStock: results[2].docs.length,
+      asesorasActivas: results[3].docs.length,
+      devolucionesHoy: results[4].docs.length,
       actividadReciente: actividad,
     );
   }

@@ -19,12 +19,26 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
   final Set<String> _seleccionados = {};
   bool _pagando = false;
 
+  // Filtros
+  final _searchCtrl = TextEditingController();
+  String _busqueda = '';
+  TipoComision? _filtroTipo; // null = todos
+
   final fmt = NumberFormat('#,###', 'es_CO');
 
   @override
   void initState() {
     super.initState();
     _cargar();
+    _searchCtrl.addListener(() {
+      setState(() => _busqueda = _searchCtrl.text.trim().toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _cargar() async {
@@ -45,10 +59,20 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
     }
   }
 
-  // Group commissions by user
+  List<ComisionModel> get _comisionesFiltradas {
+    return _comisiones.where((c) {
+      final coincideTipo =
+          _filtroTipo == null || c.tipo == _filtroTipo;
+      final coincideBusqueda = _busqueda.isEmpty ||
+          c.nombreUsuario.toLowerCase().contains(_busqueda) ||
+          c.nombreCliente.toLowerCase().contains(_busqueda);
+      return coincideTipo && coincideBusqueda;
+    }).toList();
+  }
+
   Map<String, List<ComisionModel>> get _porUsuario {
     final mapa = <String, List<ComisionModel>>{};
-    for (final c in _comisiones) {
+    for (final c in _comisionesFiltradas) {
       mapa.putIfAbsent(c.usuarioUid, () => []).add(c);
     }
     return mapa;
@@ -59,6 +83,9 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
 
   double get _totalQuincena =>
       _comisiones.fold(0.0, (s, c) => s + c.montoComision);
+
+  double get _totalFiltrado =>
+      _comisionesFiltradas.fold(0.0, (s, c) => s + c.montoComision);
 
   double get _totalSeleccionado {
     return _comisiones
@@ -101,10 +128,14 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
     }
   }
 
+  bool get _hayFiltro => _filtroTipo != null || _busqueda.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final filtradas = _comisionesFiltradas;
+    final porUsuario = _porUsuario;
 
     return Scaffold(
       appBar: AppBar(
@@ -112,7 +143,7 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.refresh, color: colorScheme.primary),
-            onPressed: _cargar,
+            onPressed: _cargando ? null : _cargar,
           ),
         ],
       ),
@@ -120,10 +151,10 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
           ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : Column(
               children: [
-                // Summary header
+                // ── Resumen ──────────────────────────────────────────────
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,57 +162,153 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                       Text('Período: ${_periodoActual()}',
                           style: textTheme.bodySmall),
                       const SizedBox(height: 4),
-                      Text(
-                        'Total a pagar: \$${fmt.format(_totalQuincena)}',
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            '\$${fmt.format(_hayFiltro ? _totalFiltrado : _totalQuincena)}',
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                          if (_hayFiltro) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '(total: \$${fmt.format(_totalQuincena)})',
+                              style: textTheme.bodySmall,
+                            ),
+                          ],
+                        ],
                       ),
                       Text(
-                        '${_comisiones.length} comisiones pendientes',
+                        '${filtradas.length} comisión${filtradas.length == 1 ? '' : 'es'}'
+                        '${_hayFiltro ? ' filtradas' : ' pendientes'}',
                         style: textTheme.bodySmall,
                       ),
                     ],
                   ),
                 ),
 
+                // ── Filtros ──────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                  child: Column(
+                    children: [
+                      // Barra de búsqueda
+                      TextField(
+                        controller: _searchCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Buscar por nombre…',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: _busqueda.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchCtrl.clear();
+                                  },
+                                )
+                              : null,
+                          isDense: true,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                                color: colorScheme.outlineVariant),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                                color: colorScheme.outlineVariant),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Chips de tipo
+                      Row(
+                        children: [
+                          _FiltroChip(
+                            label: 'Todos',
+                            selected: _filtroTipo == null,
+                            onTap: () =>
+                                setState(() => _filtroTipo = null),
+                          ),
+                          const SizedBox(width: 8),
+                          _FiltroChip(
+                            label: 'Asesoras',
+                            icon: Icons.storefront_outlined,
+                            color: Colors.green,
+                            selected: _filtroTipo == TipoComision.venta,
+                            onTap: () => setState(
+                                () => _filtroTipo = TipoComision.venta),
+                          ),
+                          const SizedBox(width: 8),
+                          _FiltroChip(
+                            label: 'Cobradores',
+                            icon: Icons.payments_outlined,
+                            color: Colors.blue,
+                            selected: _filtroTipo == TipoComision.cobro,
+                            onTap: () => setState(
+                                () => _filtroTipo = TipoComision.cobro),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Lista ────────────────────────────────────────────────
                 Expanded(
-                  child: _comisiones.isEmpty
+                  child: filtradas.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.check_circle_outline,
-                                  color: colorScheme.primary, size: 48),
+                              Icon(
+                                _hayFiltro
+                                    ? Icons.search_off
+                                    : Icons.check_circle_outline,
+                                color: colorScheme.primary,
+                                size: 48,
+                              ),
                               const SizedBox(height: 12),
-                              Text('No hay comisiones pendientes',
-                                  style: textTheme.bodyLarge),
-                              Text('para este período.',
-                                  style: textTheme.bodyMedium),
+                              Text(
+                                _hayFiltro
+                                    ? 'Sin resultados para este filtro'
+                                    : 'No hay comisiones pendientes',
+                                style: textTheme.bodyLarge,
+                              ),
+                              if (!_hayFiltro)
+                                Text('para este período.',
+                                    style: textTheme.bodyMedium),
                             ],
                           ),
                         )
                       : RefreshIndicator(
                           onRefresh: _cargar,
                           child: ListView(
-                            padding: const EdgeInsets.all(16),
-                            children: _porUsuario.entries.map((entry) {
+                            padding: const EdgeInsets.all(12),
+                            children: porUsuario.entries.map((entry) {
                               final uid = entry.key;
                               final lista = entry.value;
                               final nombre = lista.first.nombreUsuario;
                               final tipo = lista.first.tipo;
                               final total = _totalUsuario(lista);
-                              final ids = lista.map((c) => c.comisionId).toList();
-                              final todosMarcados = ids.every(_seleccionados.contains);
+                              final ids =
+                                  lista.map((c) => c.comisionId).toList();
+                              final todosMarcados =
+                                  ids.every(_seleccionados.contains);
 
                               return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
+                                margin: const EdgeInsets.only(bottom: 10),
                                 child: ExpansionTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: tipo == TipoComision.venta
-                                        ? Colors.green.withValues(alpha: 0.15)
-                                        : Colors.blue.withValues(alpha: 0.15),
+                                    backgroundColor:
+                                        tipo == TipoComision.venta
+                                            ? Colors.green
+                                                .withValues(alpha: 0.15)
+                                            : Colors.blue
+                                                .withValues(alpha: 0.15),
                                     child: Icon(
                                       tipo == TipoComision.venta
                                           ? Icons.storefront_outlined
@@ -196,7 +323,7 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                                       style: textTheme.bodyLarge?.copyWith(
                                           fontWeight: FontWeight.bold)),
                                   subtitle: Text(
-                                    '${tipo == TipoComision.venta ? "Asesora" : "Cobrador"} · ${lista.length} comisiones',
+                                    '${tipo == TipoComision.venta ? "Asesora" : "Cobrador"} · ${lista.length} comisión${lista.length == 1 ? '' : 'es'}',
                                     style: textTheme.bodySmall,
                                   ),
                                   trailing: Row(
@@ -229,7 +356,8 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                                             _seleccionados
                                                 .remove(c.comisionId);
                                           } else {
-                                            _seleccionados.add(c.comisionId);
+                                            _seleccionados
+                                                .add(c.comisionId);
                                           }
                                         }),
                                         activeColor: colorScheme.primary,
@@ -259,7 +387,7 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                         ),
                 ),
 
-                // Bottom pay bar
+                // ── Barra de pago ─────────────────────────────────────────
                 if (_seleccionados.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -277,7 +405,7 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '${_seleccionados.length} seleccionadas',
+                                '${_seleccionados.length} seleccionada${_seleccionados.length == 1 ? '' : 's'}',
                                 style: textTheme.bodySmall,
                               ),
                               Text(
@@ -297,7 +425,8 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
+                                      strokeWidth: 2,
+                                      color: Colors.white),
                                 )
                               : const Icon(Icons.payment_outlined, size: 18),
                           label: const Text('Marcar Pagadas'),
@@ -316,6 +445,65 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                   ),
               ],
             ),
+    );
+  }
+}
+
+// ─── Chip de filtro ──────────────────────────────────────────────────────────
+
+class _FiltroChip extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Color? color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FiltroChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final chipColor = color ?? colorScheme.primary;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? chipColor.withValues(alpha: 0.15)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? chipColor : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: selected ? chipColor : colorScheme.onSurfaceVariant),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? chipColor : colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
