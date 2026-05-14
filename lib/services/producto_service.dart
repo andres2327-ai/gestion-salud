@@ -34,7 +34,10 @@ class ProductoService {
 
   // Agregar nuevo producto
   Future<void> agregarProducto(ProductoModel producto) async {
-    await _col.doc(producto.codigoBarras).set(producto.toMap());
+    await _col
+        .doc(producto.codigoBarras)
+        .set(producto.toMap())
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   // Actualizar producto
@@ -42,24 +45,33 @@ class ProductoService {
     String codigoBarras,
     Map<String, dynamic> datos,
   ) async {
-    await _col.doc(codigoBarras).update(datos);
+    await _col
+        .doc(codigoBarras)
+        .update(datos)
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   // Ajustar stock (positivo = entrada, negativo = salida)
   Future<void> ajustarStock(String codigoBarras, int cantidad) async {
     await _col.doc(codigoBarras).update({
       'cantidad_stock': FieldValue.increment(cantidad),
-    });
+    }).timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   // Desactivar producto
   Future<void> desactivarProducto(String codigoBarras) async {
-    await _col.doc(codigoBarras).update({'activo': false});
+    await _col
+        .doc(codigoBarras)
+        .update({'activo': false})
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   // Eliminar producto permanentemente
   Future<void> eliminarProducto(String codigoBarras) async {
-    await _col.doc(codigoBarras).delete();
+    await _col
+        .doc(codigoBarras)
+        .delete()
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   // Obtener productos con stock bajo (menos de N unidades)

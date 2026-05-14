@@ -26,6 +26,8 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
   final _stockCtrl     = TextEditingController();
   final _stockMinCtrl  = TextEditingController();
 
+  
+
   TipoProducto? _tipoSeleccionado;
   DateTime? _fechaVencimiento;
   bool _activo = true;
@@ -129,6 +131,7 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(_modoEdicion ? 'Editar Producto' : 'Nuevo Producto'),

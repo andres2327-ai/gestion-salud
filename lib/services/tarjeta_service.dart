@@ -51,17 +51,19 @@ class TarjetaService {
       batch.set(cuotaRef, {...cuota.toMap(), 'tarjeta_id': tarjetaId});
     }
 
-    await batch.commit();
+    await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
 
     // Registrar comisión de la asesora (20% del total de venta)
-    await _comisionService.registrarComision(
-      tipo: TipoComision.venta,
-      usuarioUid: tarjeta.asesoraUid,
-      nombreUsuario: tarjeta.nombreAsesora,
-      tarjetaId: tarjetaId,
-      nombreCliente: tarjeta.nombreCliente,
-      montoBase: tarjeta.totalVenta,
-    );
+    await _comisionService
+        .registrarComision(
+          tipo: TipoComision.venta,
+          usuarioUid: tarjeta.asesoraUid,
+          nombreUsuario: tarjeta.nombreAsesora,
+          tarjetaId: tarjetaId,
+          nombreCliente: tarjeta.nombreCliente,
+          montoBase: tarjeta.totalVenta,
+        )
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
 
     return tarjetaId;
   }
@@ -93,7 +95,10 @@ class TarjetaService {
 
   // Actualizar foto de la tarjeta
   Future<void> actualizarFoto(String tarjetaId, String fotoUrl) async {
-    await _col.doc(tarjetaId).update({'foto_url': fotoUrl});
+    await _col
+        .doc(tarjetaId)
+        .update({'foto_url': fotoUrl})
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   // Stream de tarjetas por lista de IDs (para cobrador)
@@ -138,29 +143,41 @@ class TarjetaService {
     String tarjetaId,
     Map<String, dynamic> datos,
   ) async {
-    await _col.doc(tarjetaId).update(datos);
+    await _col
+        .doc(tarjetaId)
+        .update(datos)
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   // Eliminar tarjeta, sus cuotas y sus asignaciones
   Future<void> eliminarTarjeta(String tarjetaId) async {
-    final results = await Future.wait([
-      _db.collection('cuotas').where('tarjeta_id', isEqualTo: tarjetaId).get(),
-      _db
-          .collection('asignaciones')
-          .where('tarjeta_id', isEqualTo: tarjetaId)
-          .get(),
-    ]);
+    List<QuerySnapshot<Map<String, dynamic>>> results;
+    try {
+      results = await Future.wait([
+        _db.collection('cuotas').where('tarjeta_id', isEqualTo: tarjetaId).get(),
+        _db
+            .collection('asignaciones')
+            .where('tarjeta_id', isEqualTo: tarjetaId)
+            .get(),
+      ]).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Sin conexión: sólo se elimina la tarjeta principal;
+      // las cuotas y asignaciones se limpiarán cuando haya red.
+      results = const [];
+    }
 
     final batch = _db.batch();
     batch.delete(_col.doc(tarjetaId));
-    for (final doc in results[0].docs) {
-      batch.delete(doc.reference);
-    }
-    for (final doc in results[1].docs) {
-      batch.delete(doc.reference);
+    if (results.length == 2) {
+      for (final doc in results[0].docs) {
+        batch.delete(doc.reference);
+      }
+      for (final doc in results[1].docs) {
+        batch.delete(doc.reference);
+      }
     }
 
-    await batch.commit();
+    await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
   }
 
   // ─── Productos de una tarjeta ──────────────────────────────────────────────

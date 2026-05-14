@@ -51,20 +51,26 @@ class CobroService {
       'saldo_pendiente': FieldValue.increment(-monto),
     });
 
-    await batch.commit();
+    await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
 
     // Registrar comisión del cobrador (20%)
-    await _comisionService.registrarComision(
-      tipo: TipoComision.cobro,
-      usuarioUid: cobradorUid,
-      nombreUsuario: nombreCobrador,
-      tarjetaId: tarjetaId,
-      nombreCliente: nombreCliente,
-      montoBase: monto,
-    );
+    await _comisionService
+        .registrarComision(
+          tipo: TipoComision.cobro,
+          usuarioUid: cobradorUid,
+          nombreUsuario: nombreCobrador,
+          tarjetaId: tarjetaId,
+          nombreCliente: nombreCliente,
+          montoBase: monto,
+        )
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
 
     // Verificar si la tarjeta quedó totalmente pagada
-    await _verificarTarjetaPagada(tarjetaId);
+    try {
+      await _verificarTarjetaPagada(tarjetaId);
+    } catch (_) {
+      // Sin conexión: la verificación ocurrirá cuando sincronice con el servidor.
+    }
   }
 
   Future<void> _verificarTarjetaPagada(String tarjetaId) async {
@@ -77,7 +83,7 @@ class CobroService {
       await _db.collection('tarjetas').doc(tarjetaId).update({
         'estado': EstadoTarjeta.pagada.name,
         'saldo_pendiente': 0,
-      });
+      }).timeout(const Duration(seconds: 5), onTimeout: () {});
     }
   }
 
@@ -136,19 +142,25 @@ class CobroService {
       'saldo_pendiente': FieldValue.increment(-monto),
     });
 
-    await batch.commit();
+    await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
 
     // Registrar comisión del cobrador (20%)
-    await _comisionService.registrarComision(
-      tipo: TipoComision.cobro,
-      usuarioUid: cobradorUid,
-      nombreUsuario: nombreCobrador,
-      tarjetaId: tarjetaId,
-      nombreCliente: nombreCliente,
-      montoBase: monto,
-    );
+    await _comisionService
+        .registrarComision(
+          tipo: TipoComision.cobro,
+          usuarioUid: cobradorUid,
+          nombreUsuario: nombreCobrador,
+          tarjetaId: tarjetaId,
+          nombreCliente: nombreCliente,
+          montoBase: monto,
+        )
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
 
-    await _verificarTarjetaPagada(tarjetaId);
+    try {
+      await _verificarTarjetaPagada(tarjetaId);
+    } catch (_) {
+      // Sin conexión: la verificación ocurrirá cuando sincronice con el servidor.
+    }
   }
 
   // Stream de pagos de una tarjeta (sin orderBy para evitar índice compuesto)
@@ -177,11 +189,13 @@ class CobroService {
   // Solicitar devolución (asesora o cobrador; pasa origen: 'cobrador' si aplica)
   Future<String> solicitarDevolucion(DevolucionModel devolucion, {String? origen}) async {
     final ref = _devCol.doc();
-    await ref.set({
-      ...devolucion.toMap(),
-      'estado': EstadoDevolucion.pendiente.name,
-      if (origen case final o?) 'origen': o,
-    });
+    await ref
+        .set({
+          ...devolucion.toMap(),
+          'estado': EstadoDevolucion.pendiente.name,
+          if (origen != null) 'origen': origen,
+        })
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
     return ref.id;
   }
 
@@ -247,24 +261,29 @@ class CobroService {
       }
     }
 
-    await batch.commit();
+    await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
 
     // Revertir vendidos en asignaciones_productos de la asesora
     if (nuevoEstado == EstadoDevolucion.aprobada &&
         codigoBarrasProducto.isNotEmpty) {
-      final snap = await _db
-          .collection('asignaciones_productos')
-          .where('asesora_uid', isEqualTo: asesoraUid)
-          .where('codigo_barras', isEqualTo: codigoBarrasProducto)
-          .where('activa', isEqualTo: true)
-          .get();
-      if (snap.docs.isNotEmpty) {
-        await _db
+      try {
+        final snap = await _db
             .collection('asignaciones_productos')
-            .doc(snap.docs.first.id)
-            .update({
-          'cantidad_vendida': FieldValue.increment(-cantidadDevuelta),
-        });
+            .where('asesora_uid', isEqualTo: asesoraUid)
+            .where('codigo_barras', isEqualTo: codigoBarrasProducto)
+            .where('activa', isEqualTo: true)
+            .get();
+        if (snap.docs.isNotEmpty) {
+          await _db
+              .collection('asignaciones_productos')
+              .doc(snap.docs.first.id)
+              .update({
+                'cantidad_vendida': FieldValue.increment(-cantidadDevuelta),
+              })
+              .timeout(const Duration(seconds: 5), onTimeout: () {});
+        }
+      } catch (_) {
+        // Sin conexión: se reintentará al sincronizar con el servidor.
       }
     }
   }

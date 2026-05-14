@@ -32,7 +32,7 @@ class ComisionService {
       'estado': EstadoComision.pendiente.name,
       'fecha': FieldValue.serverTimestamp(),
       'fecha_pago': null,
-    });
+    }).timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   // ─── Queries ──────────────────────────────────────────────────────────────
@@ -116,6 +116,6 @@ class ComisionService {
         'fecha_pago': FieldValue.serverTimestamp(),
       });
     }
-    await batch.commit();
+    await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
   }
 }

@@ -31,9 +31,12 @@ class AsignacionProductoService {
     if (existing.docs.isNotEmpty) {
       await _col.doc(existing.docs.first.id).update({
         'cantidad_asignada': FieldValue.increment(asignacion.cantidadAsignada),
-      });
+      }).timeout(const Duration(seconds: 5), onTimeout: () {});
     } else {
-      await _col.doc().set(asignacion.toMap());
+      await _col
+          .doc()
+          .set(asignacion.toMap())
+          .timeout(const Duration(seconds: 5), onTimeout: () {});
     }
   }
 
@@ -52,12 +55,15 @@ class AsignacionProductoService {
     if (snap.docs.isNotEmpty) {
       await _col.doc(snap.docs.first.id).update({
         'cantidad_vendida': FieldValue.increment(cantidadVendida),
-      });
+      }).timeout(const Duration(seconds: 5), onTimeout: () {});
     }
   }
 
   // Eliminar asignación
   Future<void> desactivarAsignacion(String asignacionId) async {
-    await _col.doc(asignacionId).update({'activa': false});
+    await _col
+        .doc(asignacionId)
+        .update({'activa': false})
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 }

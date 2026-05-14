@@ -66,10 +66,16 @@ class ProductoCard extends StatelessWidget {
                     nombre,
                     style: textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(tipo, style: textTheme.bodySmall),
+                  Text(
+                    tipo,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -84,7 +90,12 @@ class ProductoCard extends StatelessWidget {
                     fontSize: 18,
                   ),
                 ),
-                Text('uds', style: textTheme.bodySmall),
+                Text(
+                  'uds',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
             if (onEdit != null || onDelete != null) ...[
@@ -195,10 +206,16 @@ class ProductCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(producto.tipo.name, style: textTheme.bodySmall),
+                  Text(
+                    producto.tipo.name,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
