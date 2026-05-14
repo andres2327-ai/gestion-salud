@@ -14,22 +14,24 @@ class AdminQuincenaScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
-  List<ComisionModel> _comisiones = [];
-  bool _cargando = true;
   final Set<String> _seleccionados = {};
   bool _pagando = false;
 
   // Filtros
   final _searchCtrl = TextEditingController();
   String _busqueda = '';
-  TipoComision? _filtroTipo; // null = todos
+  TipoComision? _filtroTipo;
 
   final fmt = NumberFormat('#,###', 'es_CO');
 
   @override
   void initState() {
     super.initState();
-    _cargar();
+    // Usar stream igual que el resto de la app — Firestore entrega los datos
+    // en cuanto la conexión/auth están listos, sin depender de timing.
+    Future.microtask(() {
+      ref.read(comisionControllerProvider.notifier).escucharComisionesPendientes();
+    });
     _searchCtrl.addListener(() {
       setState(() => _busqueda = _searchCtrl.text.trim().toLowerCase());
     });
@@ -41,28 +43,19 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
     super.dispose();
   }
 
-  Future<void> _cargar() async {
-    if (!mounted) return;
-    setState(() => _cargando = true);
-    try {
-      final lista = await ref
-          .read(comisionControllerProvider.notifier)
-          .cargarQuincenaTodos();
-      if (mounted) {
-        setState(() {
-          _comisiones = lista;
-          _cargando = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _cargando = false);
-    }
+  Future<void> _pagarSeleccionados() async {
+    if (_seleccionados.isEmpty) return;
+    setState(() => _pagando = true);
+    final ok = await ref
+        .read(comisionControllerProvider.notifier)
+        .marcarPagadas(_seleccionados.toList());
+    if (ok) setState(() => _seleccionados.clear());
+    if (mounted) setState(() => _pagando = false);
   }
 
-  List<ComisionModel> get _comisionesFiltradas {
-    return _comisiones.where((c) {
-      final coincideTipo =
-          _filtroTipo == null || c.tipo == _filtroTipo;
+  List<ComisionModel> _aplicarFiltros(List<ComisionModel> todas) {
+    return todas.where((c) {
+      final coincideTipo = _filtroTipo == null || c.tipo == _filtroTipo;
       final coincideBusqueda = _busqueda.isEmpty ||
           c.nombreUsuario.toLowerCase().contains(_busqueda) ||
           c.nombreCliente.toLowerCase().contains(_busqueda);
@@ -70,9 +63,9 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
     }).toList();
   }
 
-  Map<String, List<ComisionModel>> get _porUsuario {
+  Map<String, List<ComisionModel>> _agruparPorUsuario(List<ComisionModel> lista) {
     final mapa = <String, List<ComisionModel>>{};
-    for (final c in _comisionesFiltradas) {
+    for (final c in lista) {
       mapa.putIfAbsent(c.usuarioUid, () => []).add(c);
     }
     return mapa;
@@ -81,41 +74,19 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
   double _totalUsuario(List<ComisionModel> lista) =>
       lista.fold(0.0, (s, c) => s + c.montoComision);
 
-  double get _totalQuincena =>
-      _comisiones.fold(0.0, (s, c) => s + c.montoComision);
-
-  double get _totalFiltrado =>
-      _comisionesFiltradas.fold(0.0, (s, c) => s + c.montoComision);
-
-  double get _totalSeleccionado {
-    return _comisiones
-        .where((c) => _seleccionados.contains(c.comisionId))
-        .fold(0.0, (s, c) => s + c.montoComision);
-  }
+  double _totalSeleccionado(List<ComisionModel> todas) => todas
+      .where((c) => _seleccionados.contains(c.comisionId))
+      .fold(0.0, (s, c) => s + c.montoComision);
 
   void _toggleUsuario(String uid, List<ComisionModel> lista) {
     setState(() {
       final ids = lista.map((c) => c.comisionId).toList();
-      final todosMarcados = ids.every(_seleccionados.contains);
-      if (todosMarcados) {
+      if (ids.every(_seleccionados.contains)) {
         _seleccionados.removeAll(ids);
       } else {
         _seleccionados.addAll(ids);
       }
     });
-  }
-
-  Future<void> _pagarSeleccionados() async {
-    if (_seleccionados.isEmpty) return;
-    setState(() => _pagando = true);
-    final ok = await ref
-        .read(comisionControllerProvider.notifier)
-        .marcarPagadas(_seleccionados.toList());
-    if (ok) {
-      _seleccionados.clear();
-      await _cargar();
-    }
-    if (mounted) setState(() => _pagando = false);
   }
 
   String _periodoActual() {
@@ -128,14 +99,21 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
     }
   }
 
-  bool get _hayFiltro => _filtroTipo != null || _busqueda.isNotEmpty;
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final filtradas = _comisionesFiltradas;
-    final porUsuario = _porUsuario;
+
+    // Leer directamente del provider — se actualiza automáticamente por el stream
+    final comisionState = ref.watch(comisionControllerProvider);
+    final todas = comisionState.comisiones;
+    final cargando = comisionState.cargando && todas.isEmpty;
+
+    final filtradas = _aplicarFiltros(todas);
+    final porUsuario = _agruparPorUsuario(filtradas);
+    final hayFiltro = _filtroTipo != null || _busqueda.isNotEmpty;
+    final totalGeneral = todas.fold(0.0, (s, c) => s + c.montoComision);
+    final totalFiltrado = filtradas.fold(0.0, (s, c) => s + c.montoComision);
 
     return Scaffold(
       appBar: AppBar(
@@ -143,11 +121,13 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.refresh, color: colorScheme.primary),
-            onPressed: _cargando ? null : _cargar,
+            onPressed: () => ref
+                .read(comisionControllerProvider.notifier)
+                .escucharComisionesPendientes(),
           ),
         ],
       ),
-      body: _cargando
+      body: cargando
           ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : Column(
               children: [
@@ -165,24 +145,22 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                       Row(
                         children: [
                           Text(
-                            '\$${fmt.format(_hayFiltro ? _totalFiltrado : _totalQuincena)}',
+                            '\$${fmt.format(hayFiltro ? totalFiltrado : totalGeneral)}',
                             style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: colorScheme.primary,
                             ),
                           ),
-                          if (_hayFiltro) ...[
+                          if (hayFiltro) ...[
                             const SizedBox(width: 6),
-                            Text(
-                              '(total: \$${fmt.format(_totalQuincena)})',
-                              style: textTheme.bodySmall,
-                            ),
+                            Text('(total: \$${fmt.format(totalGeneral)})',
+                                style: textTheme.bodySmall),
                           ],
                         ],
                       ),
                       Text(
                         '${filtradas.length} comisión${filtradas.length == 1 ? '' : 'es'}'
-                        '${_hayFiltro ? ' filtradas' : ' pendientes'}',
+                        '${hayFiltro ? ' filtradas' : ' pendientes'}',
                         style: textTheme.bodySmall,
                       ),
                     ],
@@ -194,7 +172,6 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
                   child: Column(
                     children: [
-                      // Barra de búsqueda
                       TextField(
                         controller: _searchCtrl,
                         decoration: InputDecoration(
@@ -203,9 +180,7 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                           suffixIcon: _busqueda.isNotEmpty
                               ? IconButton(
                                   icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    _searchCtrl.clear();
-                                  },
+                                  onPressed: _searchCtrl.clear,
                                 )
                               : null,
                           isDense: true,
@@ -224,14 +199,12 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Chips de tipo
                       Row(
                         children: [
                           _FiltroChip(
                             label: 'Todos',
                             selected: _filtroTipo == null,
-                            onTap: () =>
-                                setState(() => _filtroTipo = null),
+                            onTap: () => setState(() => _filtroTipo = null),
                           ),
                           const SizedBox(width: 8),
                           _FiltroChip(
@@ -265,7 +238,7 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                _hayFiltro
+                                hayFiltro
                                     ? Icons.search_off
                                     : Icons.check_circle_outline,
                                 color: colorScheme.primary,
@@ -273,19 +246,19 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                _hayFiltro
+                                hayFiltro
                                     ? 'Sin resultados para este filtro'
-                                    : 'No hay comisiones pendientes',
+                                    : 'No hay comisiones pendientes\npara este período',
                                 style: textTheme.bodyLarge,
+                                textAlign: TextAlign.center,
                               ),
-                              if (!_hayFiltro)
-                                Text('para este período.',
-                                    style: textTheme.bodyMedium),
                             ],
                           ),
                         )
                       : RefreshIndicator(
-                          onRefresh: _cargar,
+                          onRefresh: () async => ref
+                              .read(comisionControllerProvider.notifier)
+                              .escucharComisionesPendientes(),
                           child: ListView(
                             padding: const EdgeInsets.all(12),
                             children: porUsuario.entries.map((entry) {
@@ -409,7 +382,7 @@ class _AdminQuincenaScreenState extends ConsumerState<AdminQuincenaScreen> {
                                 style: textTheme.bodySmall,
                               ),
                               Text(
-                                '\$${fmt.format(_totalSeleccionado)}',
+                                '\$${fmt.format(_totalSeleccionado(todas))}',
                                 style: textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: colorScheme.primary,
@@ -490,14 +463,19 @@ class _FiltroChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 14, color: selected ? chipColor : colorScheme.onSurfaceVariant),
+              Icon(icon,
+                  size: 14,
+                  color: selected
+                      ? chipColor
+                      : colorScheme.onSurfaceVariant),
               const SizedBox(width: 4),
             ],
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                fontWeight:
+                    selected ? FontWeight.bold : FontWeight.normal,
                 color: selected ? chipColor : colorScheme.onSurfaceVariant,
               ),
             ),

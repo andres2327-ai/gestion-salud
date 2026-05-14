@@ -60,6 +60,15 @@ class ComisionController extends StateNotifier<ComisionState> {
     });
   }
 
+  void escucharComisionesPendientes() {
+    _sub?.cancel();
+    _sub = _service.streamComisionesPendientes().listen((lista) {
+      state = state.copyWith(comisiones: lista, cargando: false);
+    }, onError: (_) {
+      state = state.copyWith(cargando: false);
+    });
+  }
+
   void escucharTodasComisiones() {
     _sub?.cancel();
     _sub = _service.streamTodasComisiones().listen((lista) {

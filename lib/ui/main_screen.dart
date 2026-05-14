@@ -52,28 +52,36 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 }
 
 // ─── Navegación Admin / SuperAdmin ───────────────────────────────────────────
-class _AdminNav extends StatelessWidget {
+class _AdminNav extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
 
   const _AdminNav({required this.selectedIndex, required this.onTap});
 
   @override
+  State<_AdminNav> createState() => _AdminNavState();
+}
+
+class _AdminNavState extends State<_AdminNav> {
+  // Instanciadas una sola vez; IndexedStack las mantiene montadas
+  // para que no pierdan estado al cambiar de tab.
+  static const _screens = [
+    DashboardScreen(),
+    InventarioPage(),
+    AdminVentasScreen(),
+    AsesoresScreen(),
+    AdminDevolucionesScreen(),
+    AdminQuincenaScreen(),
+    ReportesScreen(),
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    final screens = [
-      const DashboardScreen(),
-      const InventarioPage(),
-      const AdminVentasScreen(),
-      const AsesoresScreen(),
-      const AdminDevolucionesScreen(),
-      const AdminQuincenaScreen(),
-      const ReportesScreen(),
-    ];
     return Scaffold(
-      body: screens[selectedIndex],
+      body: IndexedStack(index: widget.selectedIndex, children: _screens),
       bottomNavigationBar: _BottomNav(
-        currentIndex: selectedIndex,
-        onTap: onTap,
+        currentIndex: widget.selectedIndex,
+        onTap: widget.onTap,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
           BottomNavigationBarItem(

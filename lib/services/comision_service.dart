@@ -50,6 +50,19 @@ class ComisionService {
         });
   }
 
+  Stream<List<ComisionModel>> streamComisionesPendientes() {
+    return _col
+        .where('estado', isEqualTo: EstadoComision.pendiente.name)
+        .snapshots()
+        .map((snap) {
+          final lista = snap.docs
+              .map((d) => ComisionModel.fromMap(d.data(), d.id))
+              .toList();
+          lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+          return lista;
+        });
+  }
+
   Stream<List<ComisionModel>> streamTodasComisiones() {
     return _col.snapshots().map((snap) {
       final lista = snap.docs
@@ -66,44 +79,26 @@ class ComisionService {
   Future<List<ComisionModel>> comisionesQuincenaActual(String usuarioUid) async {
     final snap = await _col
         .where('usuario_uid', isEqualTo: usuarioUid)
-        .get();
-
-    final rango = _rangoQuincenaActual();
-    return snap.docs
+        .where('estado', isEqualTo: EstadoComision.pendiente.name)
+        .get(const GetOptions(source: Source.server));
+    final lista = snap.docs
         .map((d) => ComisionModel.fromMap(d.data(), d.id))
-        .where((c) => c.fecha.isAfter(rango.$1) && c.fecha.isBefore(rango.$2))
         .toList();
+    lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+    return lista;
   }
 
-  // Comisiones pendientes de todos en el período quincenal actual (para admin).
-  // Fetches only pending commissions with a single equality filter,
-  // then filters by quincena dates in Dart — no range query, no composite index.
+  // Todas las comisiones pendientes de pago (para admin — pantalla de quincena).
+  // Fuerza lectura desde el servidor para evitar caché vacía en el primer arranque.
   Future<List<ComisionModel>> comisionesQuincenaTodos() async {
     final snap = await _col
         .where('estado', isEqualTo: EstadoComision.pendiente.name)
-        .get();
-
-    final rango = _rangoQuincenaActual();
-    return snap.docs
+        .get(const GetOptions(source: Source.server));
+    final lista = snap.docs
         .map((d) => ComisionModel.fromMap(d.data(), d.id))
-        .where((c) => c.fecha.isAfter(rango.$1) && c.fecha.isBefore(rango.$2))
         .toList();
-  }
-
-  // Returns (inicio, fin) of the current bi-weekly period.
-  (DateTime, DateTime) _rangoQuincenaActual() {
-    final ahora = DateTime.now();
-    if (ahora.day <= 15) {
-      return (
-        DateTime(ahora.year, ahora.month, 1),
-        DateTime(ahora.year, ahora.month, 16),
-      );
-    } else {
-      return (
-        DateTime(ahora.year, ahora.month, 16),
-        DateTime(ahora.year, ahora.month + 1, 1),
-      );
-    }
+    lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+    return lista;
   }
 
   // Marcar comisiones como pagadas (admin paga quincena)
