@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'package:gestion_salud/ui/main_screen.dart';
 import 'package:gestion_salud/services/storage_service.dart';
 import 'package:gestion_salud/core/theme/app_theme.dart';
 import 'providers.dart';
+import 'controllers/auth_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,9 +29,6 @@ void main() async {
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
-
-  // Cerrar sesión al iniciar la app para que no permanezca iniciada de forma permanente
-  await FirebaseAuth.instance.signOut();
 
   // Inicializar datos de locale para que DateFormat('es_ES') funcione
   await initializeDateFormatting('es_ES', null);
@@ -60,34 +59,159 @@ class RootRoute extends ConsumerStatefulWidget {
   ConsumerState<RootRoute> createState() => _RootRouteState();
 }
 
-class _RootRouteState extends ConsumerState<RootRoute> {
-  // Splash mínimo de 2 segundos al arrancar la app
+class _RootRouteState extends ConsumerState<RootRoute>
+    with WidgetsBindingObserver {
   bool _splashListo = false;
+  // null = verificando, true = concedido, false = denegado
+  bool? _gpsGranted;
+  StreamSubscription<bool>? _serviceStatusSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _splashListo = true);
     });
+    _verificarGps();
+    _serviceStatusSub = GpsService().streamServicioHabilitado().listen((habilitado) {
+      if (!habilitado && _gpsGranted == true) {
+        if (mounted) setState(() => _gpsGranted = false);
+      } else if (habilitado && _gpsGranted == false) {
+        _reintentarGps();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _serviceStatusSub?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _reintentarGps();
+    }
+  }
+
+  Future<void> _verificarGps() async {
+    final granted = await GpsService().solicitarPermisos();
+    if (mounted) setState(() => _gpsGranted = granted);
+  }
+
+  void _reintentarGps() {
+    setState(() => _gpsGranted = null);
+    _verificarGps();
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
 
-    // Mostrar splash:
-    // 1) Durante los primeros 2 s de arranque
-    // 2) Mientras se procesa cualquier autenticación (login/verificación de perfil)
-    if (!_splashListo || authState.cargando) {
+    ref.listen<AuthState>(authControllerProvider, (prev, next) {
+      if ((prev?.autenticado ?? false) && !next.autenticado && mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
+
+    if (!_splashListo || authState.cargando || _gpsGranted == null) {
       return const _SplashScreen();
     }
 
+    if (_gpsGranted == false) {
+      return _GpsRequiredScreen(onRetry: _reintentarGps);
+    }
+
     if (authState.autenticado) {
-      return const LocationPermissionWrapper(child: MainScreen());
+      return const MainScreen();
     }
 
     return const Scaffold(body: Login());
+  }
+}
+
+class _GpsRequiredScreen extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _GpsRequiredScreen({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.coral.withAlpha(25),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: const Icon(
+                  Icons.location_off_outlined,
+                  size: 36,
+                  color: AppColors.coral,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Ubicación requerida',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.01,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Esta aplicación necesita acceso a tu ubicación para registrar ventas y gestionar cobros. Activa el GPS y otorga el permiso para continuar.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: cs.onSurfaceVariant,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 36),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: onRetry,
+                  child: const Text('Verificar de nuevo'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: () => GpsService().abrirConfiguracionUbicacion(),
+                  child: const Text('Activar GPS'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: () => GpsService().abrirConfiguracionApp(),
+                  child: const Text('Abrir ajustes de la app'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -98,43 +222,135 @@ class _SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A5C6B),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppColors.brandGradStart, AppColors.brandGradEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Stack(
           children: [
-            Image.asset(
-              'assets/images/logo.png',
-              width: 140,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'QUIERO SALUD',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
+            // Decorative concentric rings
+            for (int i = 1; i <= 4; i++)
+              Center(
+                child: Container(
+                  width: 220.0 * i,
+                  height: 220.0 * i,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withAlpha(30),
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
+
+            Positioned.fill(
+              child: SafeArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                  const Spacer(),
+
+                  // Logo card
+                  Container(
+                    width: 132,
+                    height: 132,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(36),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x2E000000),
+                          blurRadius: 60,
+                          offset: Offset(0, 28),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 96,
+                        height: 96,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.favorite_rounded,
+                          color: AppColors.brandGradStart,
+                          size: 60,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Wordmark
+                  const Text(
+                    'quiero',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 56,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w400,
+                      height: 1,
+                      letterSpacing: -0.02,
+                    ),
+                  ),
+                  const Text(
+                    'SALUD',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.24,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'TU APP DE BIENESTAR',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.12,
+                    ),
+                  ),
+
+                  const SizedBox(height: 56),
+
+                  // Loader bar
+                  const _AnimatedLoader(),
+                  const SizedBox(height: 14),
+                  Text(
+                    'cargando datos…',
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(179),
+                      fontSize: 11,
+                      letterSpacing: 0.06,
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // Footer
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 28),
+                    child: Text(
+                      'v1.2.0 · gestión farmacéutica',
+                      style: TextStyle(
+                        color: Colors.white.withAlpha(166),
+                        fontSize: 11,
+                        letterSpacing: 0.08,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'TU APP DE BIENESTAR',
-              style: TextStyle(
-                color: Colors.white60,
-                fontSize: 11,
-                letterSpacing: 3,
-              ),
-            ),
-            const SizedBox(height: 48),
-            const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2.5,
-              ),
-            ),
+          ),
           ],
         ),
       ),
@@ -142,198 +358,81 @@ class _SplashScreen extends StatelessWidget {
   }
 }
 
-// ─── Widget para solicitar permisos de ubicación ──────────────────────────────
-class LocationPermissionWrapper extends StatefulWidget {
-  final Widget child;
-
-  const LocationPermissionWrapper({super.key, required this.child});
+class _AnimatedLoader extends StatefulWidget {
+  const _AnimatedLoader();
 
   @override
-  State<LocationPermissionWrapper> createState() =>
-      _LocationPermissionWrapperState();
+  State<_AnimatedLoader> createState() => _AnimatedLoaderState();
 }
 
-class _LocationPermissionWrapperState extends State<LocationPermissionWrapper>
-    with WidgetsBindingObserver {
-  // null = still checking, false = denied, true = granted
-  bool? _permissionGranted;
-  bool _verificando = false;
+class _AnimatedLoaderState extends State<_AnimatedLoader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _solicitarPermisos();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat();
+    _anim = Tween<double>(begin: -0.5, end: 1.3).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _ctrl.dispose();
     super.dispose();
-  }
-
-  // Re-check automatically when the app returns from background (e.g., after
-  // the user enables GPS or grants permission in system settings).
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _permissionGranted != true) {
-      _solicitarPermisos();
-    }
-  }
-
-  Future<void> _solicitarPermisos() async {
-    if (_verificando) return;
-    setState(() => _verificando = true);
-
-    final gpsService = GpsService();
-
-    final serviceEnabled = await gpsService.isLocationServiceEnabled();
-    if (!mounted) return;
-
-    if (!serviceEnabled) {
-      setState(() {
-        _permissionGranted = false;
-        _verificando = false;
-      });
-      _mostrarDialogoGpsApagado();
-      return;
-    }
-
-    final granted = await gpsService.solicitarPermisos();
-    if (!mounted) return;
-
-    setState(() {
-      _permissionGranted = granted;
-      _verificando = false;
-    });
-
-    if (!granted) {
-      _mostrarDialogoPermisoRequerido();
-    }
-  }
-
-  void _mostrarDialogoGpsApagado() {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => AlertDialog(
-        title: const Text('GPS apagado'),
-        content: const Text(
-          'Para usar la función de rutas necesitamos acceso a tu ubicación. '
-          'Activa el GPS en la configuración de tu dispositivo y regresa a la app.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Ahora No'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await GpsService().abrirConfiguracionUbicacion();
-              // didChangeAppLifecycleState will re-check when the user returns
-            },
-            child: const Text('Activar GPS'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _mostrarDialogoPermisoRequerido() {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Permiso de ubicación'),
-        content: const Text(
-          'La aplicación necesita permiso de ubicación para registrar ventas '
-          'y calcular rutas. Otorga el permiso en ajustes y regresa.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cerrar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await GpsService().abrirConfiguracionApp();
-            },
-            child: const Text('Abrir ajustes'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Still checking
-    if (_permissionGranted == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // Granted → show the real app
-    if (_permissionGranted == true) {
-      return widget.child;
-    }
-
-    // Denied → show fallback screen with retry
-    return Scaffold(
-      appBar: AppBar(title: const Text('Permisos de ubicación')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(Icons.location_off_outlined, size: 64, color: Colors.grey),
-            const SizedBox(height: 20),
-            const Text(
-              'La aplicación necesita acceso a tu ubicación para funcionar correctamente.',
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Si acabas de activar el GPS o dar el permiso, toca "Verificar de nuevo".',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _verificando ? null : _solicitarPermisos,
-              icon: _verificando
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh),
-              label: const Text('Verificar de nuevo'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () async {
-                await GpsService().abrirConfiguracionUbicacion();
-              },
-              icon: const Icon(Icons.gps_fixed),
-              label: const Text('Activar GPS'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () async {
-                await GpsService().abrirConfiguracionApp();
-              },
-              icon: const Icon(Icons.settings_outlined),
-              label: const Text('Abrir ajustes de la app'),
-            ),
-          ],
+    return SizedBox(
+      width: 180,
+      height: 3,
+      child: AnimatedBuilder(
+        animation: _anim,
+        builder: (_, _) => CustomPaint(
+          painter: _LoaderPainter(_anim.value),
         ),
       ),
     );
   }
+}
+
+class _LoaderPainter extends CustomPainter {
+  final double progress;
+  _LoaderPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final trackPaint = Paint()
+      ..color = Colors.white.withAlpha(51)
+      ..style = PaintingStyle.fill;
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      const Radius.circular(99),
+    );
+    canvas.drawRRect(rrect, trackPaint);
+
+    final thumbW = size.width * 0.4;
+    final left = (progress * size.width).clamp(-thumbW, size.width);
+    final thumbPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final thumbRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(left, 0, thumbW, size.height),
+      const Radius.circular(99),
+    );
+    canvas.save();
+    canvas.clipRRect(rrect);
+    canvas.drawRRect(thumbRect, thumbPaint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_LoaderPainter old) => old.progress != progress;
 }

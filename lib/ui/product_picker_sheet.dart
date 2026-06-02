@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/app_theme.dart';
 
 class ProductoInventario {
   final String codigoBarras;
@@ -69,15 +70,13 @@ class _ProductPickerSheetState extends State<ProductPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final cardColor =
-        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: BoxDecoration(
-        color: cardColor,
+        color: cs.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -87,7 +86,7 @@ class _ProductPickerSheetState extends State<ProductPickerSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: colorScheme.outline,
+              color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -99,7 +98,7 @@ class _ProductPickerSheetState extends State<ProductPickerSheet> {
               children: [
                 Text(
                   'Agregar Producto',
-                  style: textTheme.titleLarge,
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
               ],
             ),
@@ -131,6 +130,7 @@ class _ProductPickerSheetState extends State<ProductPickerSheet> {
                 return _ProductTile(
                   producto: p,
                   yaAgregado: yaAgregado,
+                  isDark: isDark,
                   onTap: yaAgregado
                       ? null
                       : () {
@@ -151,11 +151,13 @@ class _ProductPickerSheetState extends State<ProductPickerSheet> {
 class _ProductTile extends StatelessWidget {
   final ProductoInventario producto;
   final bool yaAgregado;
+  final bool isDark;
   final VoidCallback? onTap;
 
   const _ProductTile({
     required this.producto,
     required this.yaAgregado,
+    required this.isDark,
     this.onTap,
   });
 
@@ -172,8 +174,9 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
 
     return GestureDetector(
       onTap: onTap,
@@ -183,9 +186,11 @@ class _ProductTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest,
+            color: cs.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.outlineVariant),
+            border: Border.all(
+              color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+            ),
           ),
           child: Row(
             children: [
@@ -193,12 +198,12 @@ class _ProductTile extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(9),
+                  color: jadeBg,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   _tipoIcon,
-                  color: colorScheme.onPrimaryContainer,
+                  color: jadeColor,
                   size: 18,
                 ),
               ),
@@ -209,14 +214,18 @@ class _ProductTile extends StatelessWidget {
                   children: [
                     Text(
                       producto.nombre,
-                      style: textTheme.bodyMedium?.copyWith(
+                      style: const TextStyle(
                         fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Stock: ${producto.cantidadStock}',
-                      style: textTheme.bodySmall,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -226,15 +235,19 @@ class _ProductTile extends StatelessWidget {
                 children: [
                   Text(
                     '\$${producto.precioUnitario.toStringAsFixed(0)}',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.primary,
+                    style: TextStyle(
+                      color: jadeColor,
                       fontWeight: FontWeight.w700,
+                      fontSize: 14,
                     ),
                   ),
                   if (yaAgregado)
                     Text(
                       'Agregado',
-                      style: textTheme.bodySmall,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                 ],
               ),

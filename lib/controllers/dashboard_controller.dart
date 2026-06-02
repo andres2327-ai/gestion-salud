@@ -26,22 +26,32 @@ class DashboardState {
 
 class DashboardController extends StateNotifier<DashboardState> {
   final DashboardService _service;
+  DateTime? _lastFetch;
 
   DashboardController(this._service) : super(const DashboardState()) {
     cargar();
   }
 
   Future<void> cargar() async {
+    if (_lastFetch != null &&
+        DateTime.now().difference(_lastFetch!) < const Duration(minutes: 5) &&
+        state.stats != null) {
+      return;
+    }
     state = state.copyWith(cargando: true, error: null);
     try {
       final stats = await _service.obtenerStats();
+      _lastFetch = DateTime.now();
       state = state.copyWith(stats: stats, cargando: false);
     } catch (e) {
       state = state.copyWith(cargando: false, error: e.toString());
     }
   }
 
-  Future<void> refrescar() => cargar();
+  Future<void> refrescar() {
+    _lastFetch = null;
+    return cargar();
+  }
 }
 
 // ─── Reportes ─────────────────────────────────────────────────────────────────
@@ -107,11 +117,8 @@ class ReporteState {
 class ReporteController extends StateNotifier<ReporteState> {
   final DashboardService _service;
 
-  ReporteController(this._service) : super(const ReporteState()) {
-    // Cargar el mes actual por defecto
-    final ahora = DateTime.now();
-    cargarMensual(ahora.year, ahora.month);
-  }
+  // Inicia con cargando:true; la pantalla dispara la carga real vía addPostFrameCallback
+  ReporteController(this._service) : super(const ReporteState(cargando: true));
 
   Future<void> cargarMensual(int anio, int mes) async {
     state = state.copyWith(
@@ -169,7 +176,9 @@ class ReporteController extends StateNotifier<ReporteState> {
       mesSeleccionado: null,
     );
     try {
-      final datos = await _service.reporteRangoFechas(inicio, fin);
+      final datos = await _service
+          .reporteRangoFechas(inicio, fin)
+          .timeout(const Duration(seconds: 20));
       state = state.copyWith(datos: datos, cargando: false);
     } catch (e) {
       state = state.copyWith(cargando: false, error: e.toString());

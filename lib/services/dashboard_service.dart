@@ -170,7 +170,7 @@ class DashboardService {
 
     double totalCobros = cobrosSnap.docs.fold<double>(
       0,
-      (sum, d) => sum + (d['monto'] ?? 0).toDouble(),
+      (acc, d) => acc + (d['monto'] ?? 0).toDouble(),
     );
 
     // Obtener saldo pendiente total (tarjetas activas)
@@ -181,7 +181,7 @@ class DashboardService {
 
     double saldoPendiente = pendientesSnap.docs.fold<double>(
       0,
-      (sum, d) => sum + (d['saldo_pendiente'] ?? 0).toDouble(),
+      (acc, d) => acc + (d['saldo_pendiente'] ?? 0).toDouble(),
     );
 
     return {

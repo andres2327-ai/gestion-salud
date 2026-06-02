@@ -4,9 +4,10 @@ import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/tarjeta_model.dart';
 import '../models/usuario_model.dart';
+import '../core/theme/app_theme.dart';
 import 'asesora_nueva_venta_screen.dart';
-import 'asesora_devolucion_screen.dart';
 import 'asesora_productos_screen.dart';
+import 'prestamo_solicitud_screen.dart';
 
 class AsesoraHomeScreen extends ConsumerStatefulWidget {
   const AsesoraHomeScreen({super.key});
@@ -36,7 +37,7 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
     BuildContext context,
     UsuarioModel perfil,
   ) async {
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final ctrl = TextEditingController(
       text: perfil.metaMensual.toInt().toString(),
     );
@@ -52,7 +53,7 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
           decoration: InputDecoration(
             prefixText: '\$ ',
             prefixStyle: TextStyle(
-              color: colorScheme.primary,
+              color: cs.primary,
               fontWeight: FontWeight.bold,
             ),
             hintText: '1500000',
@@ -74,8 +75,6 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
       ),
     );
 
-    // Don't dispose ctrl here: TextField still holds it during the dialog's exit animation.
-
     if (result != null && context.mounted) {
       await ref
           .read(usuarioServiceProvider)
@@ -89,8 +88,8 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
     final perfil = ref.watch(usuarioActualProvider);
     final tarjetaState = ref.watch(tarjetaControllerProvider);
     final cobroState = ref.watch(cobroControllerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (perfil == null) return const SizedBox();
 
@@ -121,7 +120,6 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
         )
         .fold<double>(0, (s, d) => s + d.montoReembolso);
 
-    // Show 20% commission on net sales (not the total sale amount)
     final gananciasMes =
         ((totalVentas - totalDevoluciones) * 0.20).clamp(0.0, double.infinity);
     final metaMes = perfil.metaMensual;
@@ -130,129 +128,272 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
 
     final fmt = NumberFormat('#,###', 'es_CO');
 
+    final violetColor = isDark ? AppColors.darkViolet : AppColors.violet;
+    final violetBg = isDark ? AppColors.darkViolet50 : AppColors.violet50;
+
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Hola,', style: textTheme.bodySmall),
-                      Text(
-                        perfil.nombre,
-                        style: textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: colorScheme.primaryContainer,
-                    child: Text(
-                      initials,
-                      style: TextStyle(
-                        color: colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+        child: CustomScrollView(
+          slivers: [
+            // Header
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hola de nuevo,',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                              letterSpacing: 0.06,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            perfil.nombre,
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.01,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Meta del mes
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.secondary,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Mis Ganancias del Mes (20%)',
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
-                        GestureDetector(
-                          onTap: () => _mostrarEditarMeta(context, perfil),
-                          child: const Icon(
-                            Icons.edit,
-                            color: Colors.white70,
-                            size: 16,
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: violetBg,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Center(
+                        child: Text(
+                          initials,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: violetColor,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '\$${fmt.format(gananciasMes)} / \$${fmt.format(metaMes)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: progreso,
-                        backgroundColor: Colors.white24,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Colors.white,
-                        ),
-                        minHeight: 6,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${(progreso * 100).toStringAsFixed(0)}% completado — ¡Sigue así!',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 24),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
-              // Acciones rápidas
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.1,
-                children: [
+            // Quincena hero card
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(isDark ? 50 : 5),
+                        blurRadius: 1,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      // Left brand gradient ribbon
+                      Positioned(
+                        left: 0, top: 0, bottom: 0,
+                        child: Container(
+                          width: 6,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.brandGradStart, AppColors.brandGradEnd],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(22),
+                              bottomLeft: Radius.circular(22),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Radial violet halo
+                      Positioned(
+                        right: -80, top: -80,
+                        child: Container(
+                          width: 220, height: 220,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [violetColor.withAlpha(30), Colors.transparent],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'QUINCENA EN CURSO',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.08,
+                                        color: isDark ? AppColors.darkInk500 : AppColors.lightInk500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${ahora.day <= 15 ? "1 → 15" : "16 → ${DateUtils.getDaysInMonth(ahora.year, ahora.month)}"} · pago al cierre',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: isDark ? AppColors.darkInk400 : AppColors.lightInk400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                GestureDetector(
+                                  onTap: () => _mostrarEditarMeta(context, perfil),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: violetColor.withAlpha(31),
+                                      borderRadius: BorderRadius.circular(99),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.calendar_today_outlined, size: 11, color: violetColor),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Faltan ${ahora.day <= 15 ? 15 - ahora.day + 1 : DateUtils.getDaysInMonth(ahora.year, ahora.month) - ahora.day + 1} días',
+                                          style: TextStyle(fontSize: 11, color: violetColor, fontWeight: FontWeight.w500),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              '\$${fmt.format(gananciasMes)}',
+                              style: TextStyle(
+                                fontSize: 52,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: -0.02,
+                                color: violetColor,
+                                height: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'comisión acumulada · 20% sobre ventas netas',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? AppColors.darkInk500 : AppColors.lightInk500,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            // Gradient progress bar
+                            Stack(
+                              children: [
+                                Container(
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                ),
+                                FractionallySizedBox(
+                                  widthFactor: progreso,
+                                  child: Container(
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [violetColor, AppColors.brandJade],
+                                      ),
+                                      borderRadius: BorderRadius.circular(99),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${(progreso * 100).toStringAsFixed(0)}% completado · meta \$${fmt.format(metaMes)}',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: isDark ? AppColors.darkInk500 : AppColors.lightInk500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'ACCIONES RÁPIDAS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant,
+                    letterSpacing: 0.06,
+                  ),
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 10)),
+
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.15,
+                ),
+                delegate: SliverChildListDelegate([
                   _ActionCard(
                     icon: Icons.shopping_bag_outlined,
                     label: 'Nueva Venta',
-                    color: colorScheme.primary,
+                    color: violetColor,
+                    tint: violetBg,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -262,41 +403,52 @@ class _AsesoraHomeScreenState extends ConsumerState<AsesoraHomeScreen> {
                         ),
                       ),
                     ),
+                    isDark: isDark,
+                    cs: cs,
                   ),
                   _ActionCard(
                     icon: Icons.inventory_2_outlined,
                     label: 'Mis Productos',
-                    color: const Color(0xFF7B5E2A),
+                    color: isDark ? AppColors.darkAmber : AppColors.amber,
+                    tint: isDark ? AppColors.darkAmber50 : AppColors.amber50,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => const AsesoraProductosScreen(),
                       ),
                     ),
-                  ),
-                  _ActionCard(
-                    icon: Icons.replay_outlined,
-                    label: 'Devolución',
-                    color: colorScheme.error,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AsesoraDevolucionScreen(
-                          asesoraUid: perfil.uid,
-                        ),
-                      ),
-                    ),
+                    isDark: isDark,
+                    cs: cs,
                   ),
                   _ActionCard(
                     icon: Icons.bar_chart_outlined,
                     label: 'Mis Ventas',
-                    color: Colors.blue,
+                    color: isDark ? AppColors.darkSky : AppColors.sky,
+                    tint: isDark ? AppColors.darkSky50 : AppColors.sky50,
                     onTap: () {},
+                    isDark: isDark,
+                    cs: cs,
                   ),
-                ],
+                  _ActionCard(
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: 'Solicitar Préstamo',
+                    color: isDark ? AppColors.darkJade : AppColors.brandJade,
+                    tint: isDark ? AppColors.darkJade50 : AppColors.lightJade50,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PrestamoSolicitudScreen(),
+                      ),
+                    ),
+                    isDark: isDark,
+                    cs: cs,
+                  ),
+                ]),
               ),
-            ],
-          ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+          ],
         ),
       ),
     );
@@ -307,51 +459,62 @@ class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final Color tint;
   final VoidCallback onTap;
+  final bool isDark;
+  final ColorScheme cs;
 
   const _ActionCard({
     required this.icon,
     required this.label,
     required this.color,
+    required this.tint,
     required this.onTap,
+    required this.isDark,
+    required this.cs,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = Theme.of(context).cardTheme.color ??
-        Theme.of(context).colorScheme.surface;
-    final textTheme = Theme.of(context).textTheme;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(16),
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+          ),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withAlpha(isDark ? 40 : 6),
+              blurRadius: 1,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(14),
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
+                color: tint,
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: 18),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
               label,
-              style: textTheme.labelLarge,
-              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.005,
+              ),
             ),
           ],
         ),

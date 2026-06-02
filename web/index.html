@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -18,29 +18,214 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Quiero Salud — Gestión farmacéutica">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="gestion_salud">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Quiero Salud">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>gestion_salud</title>
+  <title>Quiero Salud</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Fonts: Geist + Instrument Serif + Geist Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: #F6F3EC;
+      font-family: 'Geist', -apple-system, 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Splash screen ───────────────────────────────────────── */
+    #qs-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: linear-gradient(135deg, #2EA85E 0%, #1F9DA0 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      transition: opacity 0.45s ease;
+    }
+
+    #qs-splash.qs-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* decorative concentric rings */
+    .qs-rings {
+      position: absolute;
+      inset: 0;
+      opacity: 0.11;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .qs-ring {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      transform: translate(-50%, -50%);
+    }
+
+    /* logo card */
+    .qs-logo-card {
+      width: 120px;
+      height: 120px;
+      border-radius: 32px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        0 28px 60px rgba(0, 0, 0, 0.18),
+        inset 0 -10px 24px rgba(0, 0, 0, 0.04);
+      margin-bottom: 30px;
+    }
+
+    .qs-logo-card img {
+      width: 88px;
+      height: 88px;
+      object-fit: contain;
+    }
+
+    /* wordmark */
+    .qs-wordmark {
+      text-align: center;
+      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.22);
+      line-height: 1;
+    }
+    .qs-wordmark-quiero {
+      font-family: 'Instrument Serif', 'Georgia', serif;
+      font-style: italic;
+      font-size: 54px;
+      letter-spacing: -0.02em;
+    }
+    .qs-wordmark-salud {
+      display: block;
+      font-family: 'Geist', -apple-system, sans-serif;
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .qs-tagline {
+      margin-top: 18px;
+      font-size: 11.5px;
+      opacity: 0.82;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    /* loader */
+    .qs-loader {
+      margin-top: 56px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .qs-loader-track {
+      width: 168px;
+      height: 2.5px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 99px;
+      overflow: hidden;
+      position: relative;
+    }
+    .qs-loader-bar {
+      height: 100%;
+      width: 38%;
+      background: #fff;
+      border-radius: 99px;
+      animation: qsSlide 1.6s ease-in-out infinite;
+    }
+    @keyframes qsSlide {
+      0%   { margin-left: -38%; }
+      100% { margin-left: 100%; }
+    }
+    .qs-loader-label {
+      font-size: 10px;
+      opacity: 0.65;
+      letter-spacing: 0.06em;
+    }
+
+    /* footer version */
+    .qs-splash-footer {
+      position: absolute;
+      bottom: 26px;
+      font-size: 10px;
+      opacity: 0.58;
+      letter-spacing: 0.09em;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- ── Brand splash (visible while Flutter boots) ── -->
+  <div id="qs-splash">
+
+    <div class="qs-rings">
+      <div class="qs-ring" style="width:180px; height:180px;"></div>
+      <div class="qs-ring" style="width:360px; height:360px;"></div>
+      <div class="qs-ring" style="width:540px; height:540px;"></div>
+      <div class="qs-ring" style="width:720px; height:720px;"></div>
+      <div class="qs-ring" style="width:900px; height:900px;"></div>
+    </div>
+
+    <div class="qs-logo-card">
+      <img src="assets/images/logo.png" alt="Quiero Salud" />
+    </div>
+
+    <div class="qs-wordmark">
+      <span class="qs-wordmark-quiero">quiero</span>
+      <span class="qs-wordmark-salud">salud</span>
+    </div>
+
+    <div class="qs-tagline">Tu app de bienestar</div>
+
+    <div class="qs-loader">
+      <div class="qs-loader-track">
+        <div class="qs-loader-bar"></div>
+      </div>
+      <div class="qs-loader-label">cargando datos&hellip;</div>
+    </div>
+
+    <div class="qs-splash-footer">v1.2.0 &middot; gestión farmacéutica</div>
+  </div>
+
+  <!-- Flutter mount point -->
+  <div id="root"></div>
+
+  <script>
+    // Hide and remove the splash as soon as Flutter paints its first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('qs-splash');
+      if (!splash) return;
+      splash.classList.add('qs-hidden');
+      setTimeout(function () { splash.remove(); }, 500);
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

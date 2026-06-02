@@ -1,10 +1,16 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/tarjeta_model.dart';
 import '../models/asignacion_producto_model.dart';
+import '../core/theme/app_theme.dart';
+import '../core/utils/app_snackbar.dart';
+import 'widgets/shared_widgets.dart';
+import 'widgets/foto_picker.dart';
+import 'producto_selector_screen.dart';
 
 class AsesoraNuevaVentaScreen extends ConsumerStatefulWidget {
   final String asesoraUid;
@@ -36,6 +42,8 @@ class _AsesoraNuevaVentaScreenState
   final _searchCtrl = TextEditingController();
   String _busqueda = '';
   bool _guardando = false;
+  File? _foto;
+  bool _intentoRegistrar = false;
 
   final fmt = NumberFormat('#,###', 'es_CO');
 
@@ -59,7 +67,6 @@ class _AsesoraNuevaVentaScreenState
     super.dispose();
   }
 
-  // Pending products added manually (not from assigned stock)
   final List<Map<String, dynamic>> _productosPendientes = [];
 
   double _calcSubtotal(List<AsignacionProductoModel> asignaciones) {
@@ -140,23 +147,18 @@ class _AsesoraNuevaVentaScreenState
   }
 
   Future<void> _registrarVenta() async {
+    setState(() => _intentoRegistrar = true);
     if (!_formKey.currentState!.validate()) return;
     if (_zona == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecciona una zona'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      appSnackbar(context, 'Selecciona una zona', error: true);
       return;
     }
     if (!_tieneProductos) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Agrega al menos un producto'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      appSnackbar(context, 'Agrega al menos un producto', error: true);
+      return;
+    }
+    if (_foto == null) {
+      appSnackbar(context, 'La foto de la venta es obligatoria', error: true);
       return;
     }
 
@@ -165,7 +167,6 @@ class _AsesoraNuevaVentaScreenState
     final asignaciones =
         ref.read(asignacionProductoControllerProvider).asignaciones;
 
-    // Cargar productos seleccionados al carrito
     final ctrl = ref.read(tarjetaControllerProvider.notifier);
     ctrl.limpiarCarrito();
     for (final a in asignaciones) {
@@ -174,7 +175,6 @@ class _AsesoraNuevaVentaScreenState
         ctrl.agregarProductoDesdeAsignacion(a, qty);
       }
     }
-    // Añadir productos pendientes (no en inventario asignado)
     for (final p in _productosPendientes) {
       ctrl.agregarProductoPendiente(
         nombre: p['nombre'] as String,
@@ -196,6 +196,7 @@ class _AsesoraNuevaVentaScreenState
       descripcion: _descripcionCtrl.text.trim().isEmpty
           ? null
           : _descripcionCtrl.text.trim(),
+      foto: _foto,
     );
 
     if (tarjetaId != null) {
@@ -208,18 +209,11 @@ class _AsesoraNuevaVentaScreenState
 
     if (mounted) {
       if (tarjetaId != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Venta registrada exitosamente'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        appSnackbar(context, 'Venta registrada exitosamente');
         Navigator.pop(context);
       } else {
         final err = ref.read(tarjetaControllerProvider).error ?? 'Error';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: Colors.red),
-        );
+        appSnackbar(context, err, error: true);
       }
     }
   }
@@ -229,107 +223,105 @@ class _AsesoraNuevaVentaScreenState
     final asignaciones = ref.watch(asignacionProductoControllerProvider).asignaciones;
     final subtotal = _calcSubtotal(asignaciones);
     final montoCuota = _numCuotas > 0 ? subtotal / _numCuotas : 0.0;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final violetColor = isDark ? AppColors.darkViolet : AppColors.violet;
+    final violetBg = isDark ? AppColors.darkViolet50 : AppColors.violet50;
+    final amberColor = isDark ? AppColors.darkAmber : AppColors.amber;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Nueva Venta',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Nueva Venta')),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Datos del cliente
-            _SectionLabel(label: 'CLIENTE'),
+            const SectionLabel('CLIENTE'),
             const SizedBox(height: 12),
-            _buildField(
+            TextFormField(
               controller: _nombreCtrl,
-              hint: 'Nombre completo',
-              icon: Icons.person_outline,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                hintText: 'Nombre completo',
+                prefixIcon: Icon(Icons.person_outline, size: 20),
+              ),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Requerido' : null,
             ),
             const SizedBox(height: 12),
-            _buildField(
+            TextFormField(
               controller: _telefonoCtrl,
-              hint: 'Teléfono',
-              icon: Icons.phone_outlined,
               keyboardType: TextInputType.phone,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (v) =>
-                  (v == null || v.trim().length < 7) ? 'Inválido' : null,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
+              decoration: const InputDecoration(
+                hintText: 'Teléfono (10 dígitos)',
+                prefixIcon: Icon(Icons.phone_outlined, size: 20),
+              ),
+              validator: (v) {
+                final n = v?.trim() ?? '';
+                if (n.length < 7) return 'Mínimo 7 dígitos';
+                if (n.length > 10) return 'Máximo 10 dígitos';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
-            _buildField(
+            TextFormField(
               controller: _direccionCtrl,
-              hint: 'Dirección',
-              icon: Icons.location_on_outlined,
+              decoration: const InputDecoration(
+                hintText: 'Dirección',
+                prefixIcon: Icon(Icons.location_on_outlined, size: 20),
+              ),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Requerido' : null,
             ),
             const SizedBox(height: 12),
-
-            // Zona
             DropdownButtonFormField<String>(
               initialValue: _zona,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Zona *',
-                hintStyle: const TextStyle(color: Colors.grey),
-                prefixIcon: const Icon(Icons.map_outlined, color: Colors.grey, size: 20),
-                filled: true,
-                fillColor: const Color(0xFF1A1C3A),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.tealAccent),
-                ),
+                prefixIcon: Icon(Icons.map_outlined, size: 20),
               ),
-              dropdownColor: const Color(0xFF1A1C3A),
-              style: const TextStyle(color: Colors.white),
               items: kZonas.map((z) => DropdownMenuItem(value: z, child: Text(z))).toList(),
               onChanged: (v) => setState(() => _zona = v),
             ),
             const SizedBox(height: 12),
-
-            // Descripción (opcional)
-            _buildField(
+            TextFormField(
               controller: _descripcionCtrl,
-              hint: 'Descripción (opcional) — casa, calle, referencia...',
-              icon: Icons.notes_outlined,
               maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Descripción (opcional) — casa, calle, referencia...',
+                prefixIcon: Padding(
+                  padding: EdgeInsets.only(bottom: 48),
+                  child: Icon(Icons.notes_outlined, size: 20),
+                ),
+                alignLabelWithHint: true,
+              ),
             ),
 
             const SizedBox(height: 24),
 
-            // Productos asignados
-            _SectionLabel(label: 'PRODUCTOS ASIGNADOS'),
+            const SectionLabel('PRODUCTOS ASIGNADOS'),
             const SizedBox(height: 12),
             if (asignaciones.isEmpty)
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1C3A),
-                  borderRadius: BorderRadius.circular(12),
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                  ),
                 ),
-                child: const Text(
+                child: Text(
                   'No tienes productos asignados',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: cs.onSurfaceVariant),
                   textAlign: TextAlign.center,
                 ),
               )
             else ...[
-              // Selected products shown at top
               Builder(builder: (_) {
                 final seleccionados = asignaciones
                     .where((a) => (_cantidades[a.codigoBarras] ?? 0) > 0)
@@ -349,10 +341,10 @@ class _AsesoraNuevaVentaScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (seleccionados.isNotEmpty) ...[
-                      const Text(
+                      Text(
                         'EN CARRITO',
                         style: TextStyle(
-                          color: Colors.tealAccent,
+                          color: violetColor,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
@@ -363,14 +355,17 @@ class _AsesoraNuevaVentaScreenState
                             asignacion: a,
                             cantidad: _cantidades[a.codigoBarras] ?? 0,
                             fmt: fmt,
+                            isDark: isDark,
+                            cs: cs,
+                            violetColor: violetColor,
                             onChanged: (qty) =>
                                 setState(() => _cantidades[a.codigoBarras] = qty),
                           )),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         'AGREGAR MÁS',
                         style: TextStyle(
-                          color: Colors.grey,
+                          color: cs.onSurfaceVariant,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
@@ -378,34 +373,21 @@ class _AsesoraNuevaVentaScreenState
                       ),
                       const SizedBox(height: 8),
                     ],
-                    // Search field
-                    TextFormField(
+                    TextField(
                       controller: _searchCtrl,
                       onChanged: (v) => setState(() => _busqueda = v),
-                      style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Buscar producto...',
-                        hintStyle: const TextStyle(color: Colors.grey),
-                        prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                        prefixIcon: const Icon(Icons.search, size: 20),
                         suffixIcon: _busqueda.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.close, color: Colors.grey, size: 18),
+                                icon: const Icon(Icons.close, size: 18),
                                 onPressed: () {
                                   _searchCtrl.clear();
                                   setState(() => _busqueda = '');
                                 },
                               )
                             : null,
-                        filled: true,
-                        fillColor: const Color(0xFF1A1C3A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.tealAccent),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -414,18 +396,50 @@ class _AsesoraNuevaVentaScreenState
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
                           'Sin resultados para "$_busqueda"',
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
                           textAlign: TextAlign.center,
                         ),
                       )
-                    else
-                      ...filtrados.map((a) => _ProductoRow(
+                    else ...[
+                      ...filtrados.take(10).map((a) => _ProductoRow(
                             asignacion: a,
                             cantidad: _cantidades[a.codigoBarras] ?? 0,
                             fmt: fmt,
+                            isDark: isDark,
+                            cs: cs,
+                            violetColor: violetColor,
                             onChanged: (qty) =>
                                 setState(() => _cantidades[a.codigoBarras] = qty),
                           )),
+                      if (filtrados.length > 10)
+                        _BuscarMasAsesoraButton(
+                          restantes: filtrados.length - 10,
+                          violetColor: violetColor,
+                          violetBg: violetBg,
+                          onTap: () async {
+                            final items = asignaciones
+                                .map((a) => ProductoSelectorItem(
+                                      codigo: a.codigoBarras,
+                                      nombre: a.nombreProducto,
+                                      precio: a.precioUnitario,
+                                      stockDisponible: a.cantidadDisponible,
+                                    ))
+                                .toList();
+                            final result = await ProductoSelectorScreen.abrir(
+                              context,
+                              productos: items,
+                              cantidadesIniciales: Map.from(_cantidades),
+                              accentColor: violetColor,
+                              accentBg: violetBg,
+                            );
+                            if (result != null) {
+                              setState(() => result.forEach(
+                                    (k, v) => _cantidades[k] = v,
+                                  ));
+                            }
+                          },
+                        ),
+                    ],
                   ],
                 );
               }),
@@ -433,8 +447,7 @@ class _AsesoraNuevaVentaScreenState
 
             const SizedBox(height: 16),
 
-            // Pending products section
-            _SectionLabel(label: 'PRODUCTOS PENDIENTES'),
+            const SectionLabel('PRODUCTOS PENDIENTES'),
             const SizedBox(height: 8),
             if (_productosPendientes.isNotEmpty) ...[
               ..._productosPendientes.asMap().entries.map((entry) {
@@ -444,13 +457,13 @@ class _AsesoraNuevaVentaScreenState
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withAlpha(20),
+                    color: amberColor.withAlpha(20),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.withAlpha(80)),
+                    border: Border.all(color: amberColor.withAlpha(80)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.pending_outlined, color: Colors.orange, size: 16),
+                      Icon(Icons.pending_outlined, color: amberColor, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -458,17 +471,24 @@ class _AsesoraNuevaVentaScreenState
                           children: [
                             Text(
                               p['nombre'] as String,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                              style: TextStyle(
+                                color: cs.onSurface,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
                             ),
                             Text(
                               '${p['cantidad']}x \$${fmt.format((p['precio'] as double).toInt())}',
-                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                              style: TextStyle(
+                                color: cs.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.orange, size: 18),
+                        icon: Icon(Icons.close, color: amberColor, size: 18),
                         onPressed: () => setState(() => _productosPendientes.removeAt(i)),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -484,34 +504,53 @@ class _AsesoraNuevaVentaScreenState
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Agregar producto pendiente'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.orange,
-                side: const BorderSide(color: Colors.orange),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                foregroundColor: amberColor,
+                side: BorderSide(color: amberColor),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // Frecuencia de pago
-            _SectionLabel(label: 'FRECUENCIA DE PAGO'),
+            // ── Foto de la venta (requerida) ──────────────────────────
+            const SectionLabel('FOTO DE LA VENTA'),
+            const SizedBox(height: 12),
+            FotoPickerTile(
+              valor: _foto,
+              requerida: true,
+              mostrarError: _intentoRegistrar && _foto == null,
+              accentColor: violetColor,
+              accentBg: violetBg,
+              onChanged: (f) => setState(() => _foto = f),
+            ),
+
+            const SizedBox(height: 24),
+
+            const SectionLabel('FRECUENCIA DE PAGO'),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: _FreqOption(
+                  child: FreqOption(
                     label: 'Diaria',
                     icon: Icons.today_outlined,
                     selected: _frecuencia == FrecuenciaPago.diaria,
+                    accentColor: violetColor,
+                    accentBg: violetBg,
                     onTap: () =>
                         setState(() => _frecuencia = FrecuenciaPago.diaria),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _FreqOption(
+                  child: FreqOption(
                     label: 'Semanal',
                     icon: Icons.date_range_outlined,
                     selected: _frecuencia == FrecuenciaPago.semanal,
+                    accentColor: violetColor,
+                    accentBg: violetBg,
                     onTap: () =>
                         setState(() => _frecuencia = FrecuenciaPago.semanal),
                   ),
@@ -521,8 +560,7 @@ class _AsesoraNuevaVentaScreenState
 
             const SizedBox(height: 20),
 
-            // Número de cuotas
-            _SectionLabel(label: 'NÚMERO DE CUOTAS'),
+            const SectionLabel('NÚMERO DE CUOTAS'),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -535,16 +573,21 @@ class _AsesoraNuevaVentaScreenState
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                      color: sel
-                          ? Colors.tealAccent
-                          : const Color(0xFF1A1C3A),
+                      color: sel ? violetColor : cs.surface,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: sel
+                            ? violetColor
+                            : (isDark
+                                ? AppColors.darkInk200
+                                : AppColors.lightInk200),
+                      ),
                     ),
                     child: Center(
                       child: Text(
                         '$n',
                         style: TextStyle(
-                          color: sel ? Colors.black : Colors.white,
+                          color: sel ? Colors.white : cs.onSurface,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -557,26 +600,25 @@ class _AsesoraNuevaVentaScreenState
 
             const SizedBox(height: 24),
 
-            // Resumen
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1C3A),
-                borderRadius: BorderRadius.circular(12),
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                ),
               ),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Subtotal:',
-                        style: TextStyle(color: Colors.grey),
-                      ),
+                      Text('Subtotal:', style: TextStyle(color: cs.onSurfaceVariant)),
                       Text(
                         '\$${fmt.format(subtotal)}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: cs.onSurface,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -588,12 +630,12 @@ class _AsesoraNuevaVentaScreenState
                     children: [
                       Text(
                         'Cuota ${_frecuencia == FrecuenciaPago.diaria ? "diaria" : "semanal"}:',
-                        style: const TextStyle(color: Colors.grey),
+                        style: TextStyle(color: cs.onSurfaceVariant),
                       ),
                       Text(
                         '\$${fmt.format(montoCuota)}',
-                        style: const TextStyle(
-                          color: Colors.tealAccent,
+                        style: TextStyle(
+                          color: violetColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -606,143 +648,37 @@ class _AsesoraNuevaVentaScreenState
 
             const SizedBox(height: 28),
 
-            // Botón registrar
-            GestureDetector(
-              onTap: _guardando ? null : _registrarVenta,
-              child: Container(
-                height: 54,
-                decoration: BoxDecoration(
-                  color: _guardando ? Colors.grey : Colors.tealAccent,
-                  borderRadius: BorderRadius.circular(14),
+            SizedBox(
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _guardando ? null : _registrarVenta,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: violetColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-                child: Center(
-                  child: _guardando
-                      ? const CircularProgressIndicator(color: Colors.black)
-                      : const Text(
-                          'Registrar Venta',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                child: _guardando
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
                         ),
-                ),
+                      )
+                    : const Text(
+                        'Registrar Venta',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
 
             const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-    String? Function(String?)? validator,
-    int maxLines = 1,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      validator: validator,
-      maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: Icon(icon, color: Colors.grey, size: 20),
-        filled: true,
-        fillColor: const Color(0xFF1A1C3A),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.tealAccent),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  const _SectionLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        color: Colors.tealAccent,
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.2,
-      ),
-    );
-  }
-}
-
-class _FreqOption extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FreqOption({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: selected
-              ? Colors.tealAccent.withAlpha(30)
-              : const Color(0xFF1A1C3A),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? Colors.tealAccent : Colors.transparent,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: selected ? Colors.tealAccent : Colors.grey,
-              size: 22,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.tealAccent : Colors.grey,
-                fontWeight:
-                    selected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
           ],
         ),
       ),
@@ -754,12 +690,18 @@ class _ProductoRow extends StatelessWidget {
   final AsignacionProductoModel asignacion;
   final int cantidad;
   final NumberFormat fmt;
+  final bool isDark;
+  final ColorScheme cs;
+  final Color violetColor;
   final ValueChanged<int> onChanged;
 
   const _ProductoRow({
     required this.asignacion,
     required this.cantidad,
     required this.fmt,
+    required this.isDark,
+    required this.cs,
+    required this.violetColor,
     required this.onChanged,
   });
 
@@ -770,8 +712,11 @@ class _ProductoRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1C3A),
-        borderRadius: BorderRadius.circular(12),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,16 +727,16 @@ class _ProductoRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   asignacion.nombreProducto,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               Text(
                 '\$${fmt.format(asignacion.precioUnitario)}',
-                style: const TextStyle(
-                  color: Colors.tealAccent,
+                style: TextStyle(
+                  color: violetColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -800,37 +745,39 @@ class _ProductoRow extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Disponible: $disponible',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              _CounterBtn(
+              CounterButton(
                 icon: Icons.remove,
-                onTap: cantidad > 0 ? () => onChanged(cantidad - 1) : null,
+                enabled: cantidad > 0,
+                accentColor: violetColor,
+                onTap: () => onChanged(cantidad - 1),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   '$cantidad',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              _CounterBtn(
+              CounterButton(
                 icon: Icons.add,
-                onTap: cantidad < disponible
-                    ? () => onChanged(cantidad + 1)
-                    : null,
+                enabled: cantidad < disponible,
+                accentColor: violetColor,
+                onTap: () => onChanged(cantidad + 1),
               ),
               const Spacer(),
               if (cantidad > 0)
                 Text(
                   'Subtotal: \$${fmt.format(asignacion.precioUnitario * cantidad)}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
                 ),
             ],
           ),
@@ -840,32 +787,47 @@ class _ProductoRow extends StatelessWidget {
   }
 }
 
-class _CounterBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
+class _BuscarMasAsesoraButton extends StatelessWidget {
+  final int restantes;
+  final Color violetColor;
+  final Color violetBg;
+  final VoidCallback onTap;
 
-  const _CounterBtn({required this.icon, this.onTap});
+  const _BuscarMasAsesoraButton({
+    required this.restantes,
+    required this.violetColor,
+    required this.violetBg,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32,
-        height: 32,
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: onTap != null
-              ? Colors.tealAccent.withAlpha(30)
-              : Colors.grey.withAlpha(20),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: onTap != null ? Colors.tealAccent : Colors.grey,
-          ),
+          color: violetBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: violetColor.withAlpha(80)),
         ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: onTap != null ? Colors.tealAccent : Colors.grey,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_rounded, size: 18, color: violetColor),
+            const SizedBox(width: 8),
+            Text(
+              'Buscar más ($restantes producto${restantes == 1 ? '' : 's'})',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: violetColor,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.arrow_forward_ios_rounded, size: 13, color: violetColor),
+          ],
         ),
       ),
     );

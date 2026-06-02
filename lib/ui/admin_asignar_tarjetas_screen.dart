@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/tarjeta_model.dart';
 import '../models/usuario_model.dart';
+import '../core/theme/app_theme.dart';
 
 class AdminAsignarTarjetasScreen extends ConsumerStatefulWidget {
   final UsuarioModel cobrador;
@@ -82,7 +83,7 @@ class _AdminAsignarTarjetasScreenState
                 ? 'Zona $zona asignada a ${widget.cobrador.nombre}'
                 : ref.read(cobroControllerProvider).error ?? 'Error',
           ),
-          backgroundColor: ok ? Colors.green : Colors.red,
+          backgroundColor: ok ? AppColors.brandJade : AppColors.coral,
         ),
       );
     }
@@ -140,7 +141,7 @@ class _AdminAsignarTarjetasScreenState
                 ? 'Zona $zona quitada de ${widget.cobrador.nombre}'
                 : ref.read(cobroControllerProvider).error ?? 'Error',
           ),
-          backgroundColor: ok ? Colors.orange : Colors.red,
+          backgroundColor: ok ? AppColors.amber : AppColors.coral,
         ),
       );
     }
@@ -149,8 +150,9 @@ class _AdminAsignarTarjetasScreenState
   @override
   Widget build(BuildContext context) {
     final cobroState = ref.watch(cobroControllerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
 
     final asignadasIds = cobroState.asignaciones
         .where((a) => a.activa)
@@ -170,7 +172,7 @@ class _AdminAsignarTarjetasScreenState
             Text(
               widget.cobrador.nombre,
               style: TextStyle(
-                color: colorScheme.primary,
+                color: jadeColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -183,7 +185,7 @@ class _AdminAsignarTarjetasScreenState
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(
-              child: CircularProgressIndicator(color: colorScheme.primary),
+              child: CircularProgressIndicator(color: jadeColor),
             );
           }
 
@@ -191,14 +193,12 @@ class _AdminAsignarTarjetasScreenState
               .where((t) => t.estado == EstadoTarjeta.activa)
               .toList();
 
-          // Agrupar por zona
           final Map<String, List<TarjetaModel>> porZona = {};
           for (final zona in kZonas) {
             final lista = tarjetasActivas.where((t) => t.zona == zona).toList();
             if (lista.isNotEmpty) porZona[zona] = lista;
           }
 
-          // Tarjetas sin zona asignada
           final sinZona = tarjetasActivas.where((t) => t.zona.isEmpty).toList();
 
           if (porZona.isEmpty && sinZona.isEmpty) {
@@ -206,17 +206,23 @@ class _AdminAsignarTarjetasScreenState
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.map_outlined,
-                    size: 56,
-                    color: colorScheme.onSurfaceVariant,
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkInk100 : AppColors.lightInk100,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Icon(
+                      Icons.map_outlined,
+                      size: 26,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No hay tarjetas activas con zona asignada',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    style: TextStyle(color: cs.onSurfaceVariant),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -231,21 +237,25 @@ class _AdminAsignarTarjetasScreenState
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  color: isDark ? AppColors.darkJade50 : AppColors.lightJade50,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                  ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.assignment_turned_in_outlined,
-                      color: colorScheme.onPrimaryContainer,
+                      color: jadeColor,
                     ),
                     const SizedBox(width: 12),
                     Text(
                       '${asignadasIds.length} tarjeta(s) asignada(s) en total',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onPrimaryContainer,
+                      style: TextStyle(
+                        color: jadeColor,
                         fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
                     ),
                   ],
@@ -253,7 +263,6 @@ class _AdminAsignarTarjetasScreenState
               ),
               const SizedBox(height: 16),
 
-              // Cards por zona
               ...porZona.entries.map(
                 (entry) => _ZonaCard(
                   zona: entry.key,
@@ -262,6 +271,7 @@ class _AdminAsignarTarjetasScreenState
                   todasAsignaciones: cobroState.asignaciones,
                   expanded: _expandedZones.contains(entry.key),
                   fmt: fmt,
+                  isDark: isDark,
                   onToggleExpand: () => setState(() {
                     if (_expandedZones.contains(entry.key)) {
                       _expandedZones.remove(entry.key);
@@ -283,28 +293,30 @@ class _AdminAsignarTarjetasScreenState
                 ),
               ),
 
-              // Tarjetas sin zona
               if (sinZona.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: colorScheme.outlineVariant),
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                    ),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.help_outline,
-                        color: colorScheme.onSurfaceVariant,
+                        color: cs.onSurfaceVariant,
                         size: 20,
                       ),
                       const SizedBox(width: 10),
                       Text(
                         '${sinZona.length} tarjeta(s) sin zona',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -327,6 +339,7 @@ class _ZonaCard extends StatelessWidget {
   final List<AsignacionModel> todasAsignaciones;
   final bool expanded;
   final NumberFormat fmt;
+  final bool isDark;
   final VoidCallback onToggleExpand;
   final VoidCallback onAsignar;
   final VoidCallback onDesasignar;
@@ -338,6 +351,7 @@ class _ZonaCard extends StatelessWidget {
     required this.todasAsignaciones,
     required this.expanded,
     required this.fmt,
+    required this.isDark,
     required this.onToggleExpand,
     required this.onAsignar,
     required this.onDesasignar,
@@ -345,9 +359,9 @@ class _ZonaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final cardColor = Theme.of(context).cardTheme.color ?? colorScheme.surface;
+    final cs = Theme.of(context).colorScheme;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
 
     final asignadasEnZona =
         tarjetas.where((t) => asignadasIds.contains(t.tarjetaId)).length;
@@ -359,23 +373,30 @@ class _ZonaCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: todasAsignadas
-              ? Colors.green.withValues(alpha: 0.5)
+              ? jadeColor.withAlpha(128)
               : algunaAsignada
-              ? colorScheme.primary.withValues(alpha: 0.4)
-              : colorScheme.outlineVariant,
+              ? jadeColor.withAlpha(100)
+              : (isDark ? AppColors.darkInk200 : AppColors.lightInk200),
           width: todasAsignadas ? 1.5 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 40 : 6),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         children: [
           // ── Cabecera de zona ────────────────────────────────────────────
           InkWell(
             onTap: onToggleExpand,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -384,18 +405,15 @@ class _ZonaCard extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
-                          color: todasAsignadas
-                              ? Colors.green.withValues(alpha: 0.15)
-                              : colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(10),
+                          color: jadeBg,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           Icons.map_rounded,
-                          color: todasAsignadas
-                              ? Colors.green
-                              : colorScheme.onPrimaryContainer,
+                          color: jadeColor,
                           size: 20,
                         ),
                       ),
@@ -406,14 +424,16 @@ class _ZonaCard extends StatelessWidget {
                           children: [
                             Text(
                               zona,
-                              style: textTheme.titleMedium?.copyWith(
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
+                                fontSize: 15,
                               ),
                             ),
                             Text(
                               '$asignadasEnZona / $total tarjeta(s) asignada(s)',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -423,7 +443,7 @@ class _ZonaCard extends StatelessWidget {
                         expanded
                             ? Icons.keyboard_arrow_up
                             : Icons.keyboard_arrow_down,
-                        color: colorScheme.onSurfaceVariant,
+                        color: cs.onSurfaceVariant,
                       ),
                     ],
                   ),
@@ -434,8 +454,9 @@ class _ZonaCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                      color: todasAsignadas ? Colors.green : colorScheme.primary,
+                      backgroundColor:
+                          isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                      color: jadeColor,
                       minHeight: 6,
                     ),
                   ),
@@ -462,23 +483,24 @@ class _ZonaCard extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
+                              color: jadeBg,
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.check_circle_outline,
-                                  color: Colors.green,
+                                  color: jadeColor,
                                   size: 16,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Zona completamente asignada',
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: Colors.green,
+                                  style: TextStyle(
+                                    color: jadeColor,
                                     fontWeight: FontWeight.w600,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ],
@@ -490,8 +512,8 @@ class _ZonaCard extends StatelessWidget {
                         OutlinedButton(
                           onPressed: onDesasignar,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.error,
-                            side: BorderSide(color: colorScheme.error),
+                            foregroundColor: cs.error,
+                            side: BorderSide(color: cs.error),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 10,
@@ -514,7 +536,7 @@ class _ZonaCard extends StatelessWidget {
           if (expanded) ...[
             Divider(
               height: 1,
-              color: colorScheme.outlineVariant,
+              color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
               indent: 16,
               endIndent: 16,
             ),
@@ -523,8 +545,8 @@ class _ZonaCard extends StatelessWidget {
                 tarjeta: t,
                 asignada: asignadasIds.contains(t.tarjetaId),
                 fmt: fmt,
-                colorScheme: colorScheme,
-                textTheme: textTheme,
+                isDark: isDark,
+                cs: cs,
               ),
             ),
           ],
@@ -539,19 +561,22 @@ class _TarjetaRow extends StatelessWidget {
   final TarjetaModel tarjeta;
   final bool asignada;
   final NumberFormat fmt;
-  final ColorScheme colorScheme;
-  final TextTheme textTheme;
+  final bool isDark;
+  final ColorScheme cs;
 
   const _TarjetaRow({
     required this.tarjeta,
     required this.asignada,
     required this.fmt,
-    required this.colorScheme,
-    required this.textTheme,
+    required this.isDark,
+    required this.cs,
   });
 
   @override
   Widget build(BuildContext context) {
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -560,7 +585,9 @@ class _TarjetaRow extends StatelessWidget {
             asignada
                 ? Icons.check_circle_outline
                 : Icons.radio_button_unchecked,
-            color: asignada ? Colors.green : colorScheme.outlineVariant,
+            color: asignada
+                ? jadeColor
+                : (isDark ? AppColors.darkInk200 : AppColors.lightInk200),
             size: 18,
           ),
           const SizedBox(width: 12),
@@ -570,14 +597,16 @@ class _TarjetaRow extends StatelessWidget {
               children: [
                 Text(
                   tarjeta.nombreCliente,
-                  style: textTheme.bodyMedium?.copyWith(
+                  style: const TextStyle(
                     fontWeight: FontWeight.w600,
+                    fontSize: 14,
                   ),
                 ),
                 Text(
                   'Saldo: \$${fmt.format(tarjeta.saldoPendiente)}  ·  ${tarjeta.nombreAsesora}',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -585,15 +614,17 @@ class _TarjetaRow extends StatelessWidget {
           ),
           if (asignada)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.12),
+                color: jadeBg,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 'Asignada',
-                style: textTheme.labelSmall?.copyWith(
-                  color: Colors.green,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: jadeColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),

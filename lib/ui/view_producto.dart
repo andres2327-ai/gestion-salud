@@ -1,7 +1,8 @@
-﻿// ui/view_producto.dart
+// ui/view_producto.dart
 
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
+import '../core/utils/app_snackbar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/producto_model.dart';
@@ -25,8 +26,6 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
   final _precioCtrl    = TextEditingController();
   final _stockCtrl     = TextEditingController();
   final _stockMinCtrl  = TextEditingController();
-
-  
 
   TipoProducto? _tipoSeleccionado;
   DateTime? _fechaVencimiento;
@@ -64,9 +63,7 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_fechaVencimiento == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        _snack('Selecciona la fecha de vencimiento', error: true),
-      );
+      appSnackbar(context, 'Selecciona la fecha de vencimiento', error: true);
       return;
     }
 
@@ -106,32 +103,21 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
     setState(() => _guardando = false);
 
     if (exito) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        _snack(_modoEdicion ? 'Producto actualizado ✓' : 'Producto guardado exitosamente ✓'),
-      );
+      appSnackbar(context, _modoEdicion ? 'Producto actualizado ✓' : 'Producto guardado exitosamente ✓');
       Navigator.pop(context);
     } else {
       final error = ref.read(productoControllerProvider).error;
-      ScaffoldMessenger.of(context).showSnackBar(
-        _snack(error ?? 'No se pudo guardar el producto', error: true),
-      );
+      appSnackbar(context, error ?? 'No se pudo guardar el producto', error: true);
     }
   }
 
-  SnackBar _snack(String msg, {bool error = false}) => SnackBar(
-        content: Text(
-          msg,
-          style: const TextStyle(color: AppColors.background),
-        ),
-        backgroundColor: error ? AppColors.error : AppColors.accentDark,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      );
-
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_modoEdicion ? 'Editar Producto' : 'Nuevo Producto'),
@@ -141,11 +127,14 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: isDark ? AppColors.darkInk100 : AppColors.lightInk100,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.arrow_back_ios_new_rounded,
-                size: 16, color: AppColors.textPrimary),
+            child: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 16,
+              color: cs.onSurface,
+            ),
           ),
         ),
       ),
@@ -154,10 +143,7 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           children: [
-            _SectionHeader(
-              icon: Icons.barcode_reader,
-              title: 'Identificación',
-            ),
+            _SectionHeader(icon: Icons.barcode_reader, title: 'Identificación'),
             const SizedBox(height: 12),
 
             // ── Campo código de barras + botón escanear ──────────────────
@@ -189,13 +175,15 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
                         width: 52,
                         height: 52,
                         decoration: BoxDecoration(
-                          color: AppColors.accentGlow,
+                          color: jadeBg,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+                          border: Border.all(
+                            color: jadeColor.withAlpha(100),
+                          ),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.document_scanner_rounded,
-                          color: AppColors.accent,
+                          color: jadeColor,
                           size: 24,
                         ),
                       ),
@@ -205,11 +193,11 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
               ],
             ),
             const SizedBox(height: 6),
-            const Padding(
-              padding: EdgeInsets.only(left: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
               child: Text(
                 'Escribe el código o toca el ícono para escanearlo con la cámara',
-                style: TextStyle(color: AppColors.textHint, fontSize: 11),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
               ),
             ),
             const SizedBox(height: 14),
@@ -241,7 +229,6 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
                   value: tipo,
                   child: Text(
                     tipo.name[0].toUpperCase() + tipo.name.substring(1),
-                    style: const TextStyle(color: AppColors.textPrimary),
                   ),
                 );
               }).toList(),
@@ -262,9 +249,15 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
               controller: _precioCtrl,
               keyboardType: TextInputType.number,
               prefixIcon: Icons.attach_money_rounded,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Campo requerido' : null,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(8),
+              ],
+              validator: (v) {
+                final n = int.tryParse(v?.trim() ?? '');
+                if (n == null || n <= 0) return 'Ingresa un precio válido';
+                return null;
+              },
             ),
             const SizedBox(height: 14),
 
@@ -274,9 +267,15 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
               controller: _stockCtrl,
               keyboardType: TextInputType.number,
               prefixIcon: Icons.inventory_2_rounded,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Campo requerido' : null,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(5),
+              ],
+              validator: (v) {
+                final n = int.tryParse(v?.trim() ?? '');
+                if (n == null || n < 0) return 'Ingresa una cantidad válida';
+                return null;
+              },
             ),
             const SizedBox(height: 14),
 
@@ -286,7 +285,10 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
               controller: _stockMinCtrl,
               keyboardType: TextInputType.number,
               prefixIcon: Icons.warning_amber_rounded,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(5),
+              ],
             ),
             const SizedBox(height: 24),
 
@@ -304,17 +306,6 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
                   initialDate: DateTime.now(),
                   firstDate: DateTime.now(),
                   lastDate: DateTime(2100),
-                  builder: (context, child) => Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.dark(
-                        primary: AppColors.accent,
-                        onPrimary: AppColors.background,
-                        surface: AppColors.card,
-                        onSurface: AppColors.textPrimary,
-                      ),
-                    ),
-                    child: child!,
-                  ),
                 );
                 if (picked != null) setState(() => _fechaVencimiento = picked);
               },
@@ -324,24 +315,26 @@ class _ProductoFormPageState extends ConsumerState<ProductoFormPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.card,
+                color: cs.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.divider),
+                border: Border.all(
+                  color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                ),
               ),
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text(
+                title: Text(
                   'Producto activo',
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: cs.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 subtitle: Text(
                   _activo ? 'Visible en el catálogo' : 'Oculto del catálogo',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
                     fontSize: 12,
                   ),
                 ),
@@ -379,21 +372,28 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
     return Row(
       children: [
-        Icon(icon, color: AppColors.accent, size: 16),
+        Icon(icon, color: jadeColor, size: 16),
         const SizedBox(width: 8),
         Text(
           title.toUpperCase(),
-          style: const TextStyle(
-            color: AppColors.accent,
+          style: TextStyle(
+            color: jadeColor,
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(child: Container(height: 1, color: AppColors.divider)),
+        Expanded(
+          child: Container(
+            height: 1,
+            color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+          ),
+        ),
       ],
     );
   }
@@ -406,22 +406,28 @@ class _FechaVencimientoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: AppColors.inputFill,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: fecha == null ? AppColors.inputBorder : AppColors.accent,
+            color: fecha == null
+                ? (isDark ? AppColors.darkInk200 : AppColors.lightInk200)
+                : jadeColor,
           ),
         ),
         child: Row(
           children: [
             Icon(
               Icons.calendar_today_rounded,
-              color: fecha == null ? AppColors.textHint : AppColors.accent,
+              color: fecha == null ? cs.onSurfaceVariant : jadeColor,
               size: 18,
             ),
             const SizedBox(width: 12),
@@ -433,14 +439,16 @@ class _FechaVencimientoTile extends StatelessWidget {
                         '${fecha!.month.toString().padLeft(2, '0')}/'
                         '${fecha!.year}',
                 style: TextStyle(
-                  color:
-                      fecha == null ? AppColors.textHint : AppColors.textPrimary,
+                  color: fecha == null ? cs.onSurfaceVariant : cs.onSurface,
                   fontSize: 14,
                 ),
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: AppColors.textHint, size: 14),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: cs.onSurfaceVariant,
+              size: 14,
+            ),
           ],
         ),
       ),
@@ -455,6 +463,9 @@ class _SubmitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+
     return GestureDetector(
       onTap: guardando ? null : onTap,
       child: AnimatedContainer(
@@ -464,42 +475,43 @@ class _SubmitButton extends StatelessWidget {
           gradient: guardando
               ? null
               : const LinearGradient(
-                  colors: [AppColors.accent, AppColors.accentDark],
+                  colors: [AppColors.brandGradStart, AppColors.brandGradEnd],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
-          color: guardando ? AppColors.card : null,
+          color: guardando
+              ? (isDark ? AppColors.darkInk100 : AppColors.lightInk100)
+              : null,
           borderRadius: BorderRadius.circular(16),
           boxShadow: guardando
               ? null
-              : const [
+              : [
                   BoxShadow(
-                    color: AppColors.accentGlow,
+                    color: jadeColor.withAlpha(60),
                     blurRadius: 20,
-                    offset: Offset(0, 6),
+                    offset: const Offset(0, 6),
                   ),
                 ],
         ),
         child: Center(
           child: guardando
-              ? const SizedBox(
+              ? SizedBox(
                   width: 22,
                   height: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: AppColors.accent,
+                    color: jadeColor,
                   ),
                 )
               : const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.save_rounded,
-                        color: AppColors.background, size: 20),
+                    Icon(Icons.save_rounded, color: Colors.white, size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Guardar Producto',
                       style: TextStyle(
-                        color: AppColors.background,
+                        color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),

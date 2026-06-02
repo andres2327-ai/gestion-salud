@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers.dart';
 import '../models/producto_model.dart';
+import '../core/theme/app_theme.dart';
 import './product_card.dart';
 import './view_producto.dart';
 
@@ -94,18 +95,23 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.filter_list,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                      onPressed: () {},
-                    ),
+                  Builder(
+                    builder: (ctx) {
+                      final isDark = Theme.of(ctx).brightness == Brightness.dark;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkJade50 : AppColors.lightJade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.filter_list,
+                            color: isDark ? AppColors.darkJade : AppColors.brandJade,
+                          ),
+                          onPressed: () {},
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

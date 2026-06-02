@@ -84,6 +84,7 @@ class CobroController extends StateNotifier<CobroState> {
     required String nombreCobrador,
     required String nombreCliente,
     required double monto,
+    required double saldoActual,
     String? observacion,
   }) async {
     state = state.copyWith(cargando: true, error: null);
@@ -95,6 +96,7 @@ class CobroController extends StateNotifier<CobroState> {
         nombreCobrador: nombreCobrador,
         nombreCliente: nombreCliente,
         monto: monto,
+        saldoActual: saldoActual,
         observacion: observacion,
       );
       state = state.copyWith(
@@ -112,7 +114,9 @@ class CobroController extends StateNotifier<CobroState> {
     required String nombreCobrador,
     required String nombreCliente,
     required double monto,
+    required double saldoActual,
     String? observacion,
+    String? fotoUrl,
   }) async {
     state = state.copyWith(cargando: true, error: null);
     try {
@@ -122,7 +126,9 @@ class CobroController extends StateNotifier<CobroState> {
         nombreCobrador: nombreCobrador,
         nombreCliente: nombreCliente,
         monto: monto,
+        saldoActual: saldoActual,
         observacion: observacion,
+        fotoUrl: fotoUrl,
       );
       state = state.copyWith(cargando: false, exito: 'Pago registrado.');
       return true;

@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import '../providers.dart';
 import '../controllers/dashboard_controller.dart';
 import '../utils/formato_helper.dart';
+import '../core/theme/app_theme.dart';
 
 class ReportesScreen extends ConsumerStatefulWidget {
   const ReportesScreen({super.key});
@@ -41,21 +42,25 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
   @override
   Widget build(BuildContext context) {
     final reporteState = ref.watch(reporteControllerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final violetColor = isDark ? AppColors.darkViolet : AppColors.violet;
+    final amberColor = isDark ? AppColors.darkAmber : AppColors.amber;
+    final coralColor = isDark ? AppColors.darkCoral : AppColors.coral;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reportes'),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: colorScheme.primary),
+            icon: Icon(Icons.refresh, color: jadeColor),
             onPressed: _cargarDatos,
           ),
         ],
       ),
-      body: reporteState.cargando
-          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
+      body: reporteState.cargando && reporteState.datos == null
+          ? Center(child: CircularProgressIndicator(color: jadeColor))
           : SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -66,19 +71,40 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(12),
+                        color: cs.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.darkInk200
+                              : AppColors.lightInk200,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(isDark ? 40 : 6),
+                            blurRadius: 1,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Período', style: textTheme.bodySmall),
+                          Text(
+                            'PERÍODO',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                              letterSpacing: 0.06,
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           Row(
                             children: [
                               Expanded(
                                 child: _buildDateSelector(
                                   context,
+                                  isDark,
                                   'Desde',
                                   _fechaInicio,
                                   (date) {
@@ -93,6 +119,7 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                               Expanded(
                                 child: _buildDateSelector(
                                   context,
+                                  isDark,
                                   'Hasta',
                                   _fechaFin,
                                   (date) {
@@ -113,50 +140,69 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
 
                     Text(
                       'Resumen del Período',
-                      style: textTheme.titleLarge,
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
 
                     const SizedBox(height: 16),
 
                     _buildResumenCard(
                       context,
+                      isDark: isDark,
                       titulo: 'Ventas Totales',
                       valor: FormatoHelper.formatearMontoCompleto(
                           reporteState.totalVentas),
                       icono: Icons.trending_up,
-                      color: Colors.green,
+                      color: jadeColor,
+                      colorBg: isDark
+                          ? AppColors.darkJade50
+                          : AppColors.lightJade50,
                     ),
                     _buildResumenCard(
                       context,
+                      isDark: isDark,
                       titulo: 'Número de Transacciones',
                       valor: '${reporteState.numVentas}',
                       icono: Icons.receipt_long,
-                      color: Colors.blue,
+                      color: violetColor,
+                      colorBg: isDark
+                          ? AppColors.darkViolet50
+                          : AppColors.violet50,
                     ),
                     _buildResumenCard(
                       context,
+                      isDark: isDark,
                       titulo: 'Cobros Realizados',
                       valor: FormatoHelper.formatearMontoCompleto(
                           reporteState.totalCobros),
                       icono: Icons.attach_money,
-                      color: Colors.orange,
+                      color: amberColor,
+                      colorBg: isDark
+                          ? AppColors.darkAmber50
+                          : AppColors.amber50,
                     ),
                     _buildResumenCard(
                       context,
+                      isDark: isDark,
                       titulo: 'Saldo Pendiente',
                       valor: FormatoHelper.formatearMontoCompleto(
                           reporteState.saldoPendiente),
                       icono: Icons.pending_actions,
-                      color: Colors.purple,
+                      color: coralColor,
+                      colorBg: isDark
+                          ? AppColors.darkCoral50
+                          : AppColors.coral50,
                     ),
 
                     const SizedBox(height: 24),
 
                     if (reporteState.distribucionAsesoras.isNotEmpty) ...[
-                      Text('Ventas por Asesora', style: textTheme.titleLarge),
+                      Text(
+                        'Ventas por Asesora',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 16),
                       ..._buildDistribucionAsesoras(
-                          context, reporteState.distribucionAsesoras),
+                          context, isDark, reporteState.distribucionAsesoras),
                     ],
 
                     const SizedBox(height: 24),
@@ -180,12 +226,12 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
 
   Widget _buildDateSelector(
     BuildContext context,
+    bool isDark,
     String label,
     DateTime fecha,
     Function(DateTime) onSelect,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
 
     return GestureDetector(
       onTap: () async {
@@ -202,25 +248,33 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colorScheme.outline),
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: textTheme.bodySmall),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   DateFormat('dd/MM/yyyy').format(fecha),
-                  style: textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 Icon(
                   Icons.calendar_today,
-                  color: colorScheme.primary,
+                  color: isDark ? AppColors.darkJade : AppColors.brandJade,
                   size: 18,
                 ),
               ],
@@ -233,21 +287,31 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
 
   Widget _buildResumenCard(
     BuildContext context, {
+    required bool isDark,
     required String titulo,
     required String valor,
     required IconData icono,
     required Color color,
+    required Color colorBg,
   }) {
-    final textTheme = Theme.of(context).textTheme;
-    final cardColor =
-        Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
+    final cs = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(12),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 40 : 6),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -255,23 +319,32 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(titulo, style: textTheme.bodySmall),
+              Text(
+                titulo,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 valor,
-                style: textTheme.titleMedium?.copyWith(
+                style: TextStyle(
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: cs.onSurface,
                 ),
               ),
             ],
           ),
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
+              color: colorBg,
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icono, color: color),
+            child: Icon(icono, color: color, size: 22),
           ),
         ],
       ),
@@ -280,12 +353,12 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
 
   List<Widget> _buildDistribucionAsesoras(
     BuildContext context,
+    bool isDark,
     Map<String, double> distribucion,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final cardColor =
-        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+    final cs = Theme.of(context).colorScheme;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
 
     final sortedEntries = distribucion.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -299,10 +372,20 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
 
       return Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(12),
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(isDark ? 40 : 6),
+              blurRadius: 1,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,17 +393,17 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
             Row(
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
+                    color: jadeBg,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
                     child: Text(
                       '#${index + 1}',
                       style: TextStyle(
-                        color: colorScheme.onPrimaryContainer,
+                        color: jadeColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -331,35 +414,40 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                 Expanded(
                   child: Text(
                     asesora.key,
-                    style: textTheme.bodyLarge?.copyWith(
+                    style: const TextStyle(
                       fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ),
                 Text(
                   FormatoHelper.formatearMonto(asesora.value),
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.primary,
+                  style: TextStyle(
+                    color: jadeColor,
                     fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: porcentaje / 100,
-                backgroundColor: colorScheme.surfaceContainerHighest,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                backgroundColor:
+                    isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                valueColor: AlwaysStoppedAnimation<Color>(jadeColor),
                 minHeight: 6,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '${porcentaje.toStringAsFixed(1)}% del total',
-              style: textTheme.bodySmall,
+              style: TextStyle(
+                fontSize: 11,
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -433,7 +521,7 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                   ),
                 ),
                 pw.SizedBox(height: 12),
-                pw.Table.fromTextArray(
+                pw.TableHelper.fromTextArray(
                   headers: ['#', 'Asesora', 'Ventas', 'Porcentaje'],
                   data:
                       _buildPDFTableData(reporteState.distribucionAsesoras),

@@ -6,6 +6,12 @@ import '../providers.dart';
 import '../models/tarjeta_model.dart';
 import '../models/usuario_model.dart';
 import '../models/producto_model.dart';
+import '../core/theme/app_theme.dart';
+import 'dart:io';
+import '../core/utils/app_snackbar.dart';
+import 'widgets/shared_widgets.dart';
+import 'widgets/foto_picker.dart';
+import 'producto_selector_screen.dart';
 
 class AdminNuevaVentaScreen extends ConsumerStatefulWidget {
   const AdminNuevaVentaScreen({super.key});
@@ -21,13 +27,17 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
   final _telefonoCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
   final _descripcionCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
 
   UsuarioModel? _asesoraSeleccionada;
   String? _zona;
   FrecuenciaPago _frecuencia = FrecuenciaPago.semanal;
   int _numCuotas = 4;
   final Map<String, int> _cantidades = {};
+  String _busqueda = '';
   bool _guardando = false;
+  File? _foto;
+  bool _intentoRegistrar = false;
 
   final fmt = NumberFormat('#,###', 'es_CO');
 
@@ -45,6 +55,7 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
     _telefonoCtrl.dispose();
     _direccionCtrl.dispose();
     _descripcionCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -61,17 +72,22 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
   bool get _tieneProductos => _cantidades.values.any((q) => q > 0);
 
   Future<void> _registrarVenta() async {
+    setState(() => _intentoRegistrar = true);
     if (!_formKey.currentState!.validate()) return;
     if (_asesoraSeleccionada == null) {
-      _snack('Selecciona una asesora', error: true);
+      appSnackbar(context, 'Selecciona quién realiza la venta', error: true);
       return;
     }
     if (_zona == null) {
-      _snack('Selecciona una zona', error: true);
+      appSnackbar(context, 'Selecciona una zona', error: true);
       return;
     }
     if (!_tieneProductos) {
-      _snack('Agrega al menos un producto', error: true);
+      appSnackbar(context, 'Agrega al menos un producto', error: true);
+      return;
+    }
+    if (_foto == null) {
+      appSnackbar(context, 'La foto de la venta es obligatoria', error: true);
       return;
     }
 
@@ -99,38 +115,40 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
       descripcion: _descripcionCtrl.text.trim().isEmpty
           ? null
           : _descripcionCtrl.text.trim(),
+      foto: _foto,
     );
 
     setState(() => _guardando = false);
 
     if (!mounted) return;
     if (tarjetaId != null) {
-      _snack('Venta registrada exitosamente');
+      appSnackbar(context, 'Venta registrada exitosamente');
       Navigator.pop(context);
     } else {
       final err = ref.read(tarjetaControllerProvider).error ?? 'Error';
-      _snack(err, error: true);
+      appSnackbar(context, err, error: true);
     }
-  }
-
-  void _snack(String msg, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: error ? Theme.of(context).colorScheme.error : Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
+    final adminActual = ref.watch(usuarioActualProvider);
     final asesoras = ref.watch(asesorasProvider);
+    final todosLosVendedores = [
+      ?adminActual,
+      ...asesoras,
+    ];
     final productos = ref.watch(productoControllerProvider).productos;
+    final productosFiltrados = _busqueda.isEmpty
+        ? productos
+        : productos
+            .where((p) =>
+                p.nombre.toLowerCase().contains(_busqueda.toLowerCase()))
+            .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -145,17 +163,21 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // ── Asesora ──────────────────────────────────────────────────────
-            _SectionHeader(icon: Icons.person_pin_outlined, label: 'ASESORA'),
+            // ── Vendedor ─────────��───────────────────────────────────────────
+            const SectionHeader(icon: Icons.person_pin_outlined, label: 'QUIÉN REALIZA LA VENTA'),
             const SizedBox(height: 12),
             DropdownButtonFormField<UsuarioModel>(
               initialValue: _asesoraSeleccionada,
               decoration: const InputDecoration(
-                hintText: 'Seleccionar asesora *',
+                hintText: 'Seleccionar vendedor *',
                 prefixIcon: Icon(Icons.person_outline, size: 20),
               ),
-              items: asesoras.map((a) {
-                return DropdownMenuItem(value: a, child: Text(a.nombre));
+              items: todosLosVendedores.map((a) {
+                final esAdmin = a.rol == RolUsuario.admin || a.rol == RolUsuario.superAdmin;
+                return DropdownMenuItem(
+                  value: a,
+                  child: Text(esAdmin ? '${a.nombre} (Admin)' : a.nombre),
+                );
               }).toList(),
               onChanged: (v) => setState(() => _asesoraSeleccionada = v),
               validator: (v) => v == null ? 'Requerido' : null,
@@ -163,11 +185,12 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Cliente ───────────────────────────────────────────────────────
-            _SectionHeader(icon: Icons.person_rounded, label: 'CLIENTE'),
+            // ── Cliente ─────────────────────────────────────────────���────────
+            const SectionHeader(icon: Icons.person_rounded, label: 'CLIENTE'),
             const SizedBox(height: 12),
             TextFormField(
               controller: _nombreCtrl,
+              textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
                 hintText: 'Nombre completo *',
                 prefixIcon: Icon(Icons.person_outline, size: 20),
@@ -179,13 +202,20 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
             TextFormField(
               controller: _telefonoCtrl,
               keyboardType: TextInputType.phone,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
               decoration: const InputDecoration(
-                hintText: 'Teléfono *',
+                hintText: 'Teléfono (10 dígitos) *',
                 prefixIcon: Icon(Icons.phone_outlined, size: 20),
               ),
-              validator: (v) =>
-                  (v == null || v.trim().length < 7) ? 'Inválido' : null,
+              validator: (v) {
+                final n = v?.trim() ?? '';
+                if (n.length < 7) return 'Mínimo 7 dígitos';
+                if (n.length > 10) return 'Máximo 10 dígitos';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -199,7 +229,6 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Zona
             DropdownButtonFormField<String>(
               initialValue: _zona,
               decoration: const InputDecoration(
@@ -214,7 +243,6 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Descripción
             TextFormField(
               controller: _descripcionCtrl,
               maxLines: 3,
@@ -230,8 +258,8 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Productos ─────────────────────────────────────────────────────
-            _SectionHeader(icon: Icons.inventory_2_outlined, label: 'PRODUCTOS'),
+            // ── Productos ──────────────────────────────────────────────────���─
+            const SectionHeader(icon: Icons.inventory_2_outlined, label: 'PRODUCTOS'),
             const SizedBox(height: 12),
             if (productos.isEmpty)
               Center(
@@ -239,27 +267,116 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     'No hay productos en inventario',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    style: TextStyle(color: cs.onSurfaceVariant),
                   ),
                 ),
               )
-            else
-              ...productos.map(
-                (p) => _ProductoRow(
-                  producto: p,
-                  cantidad: _cantidades[p.codigoBarras] ?? 0,
-                  fmt: fmt,
-                  onChanged: (qty) =>
-                      setState(() => _cantidades[p.codigoBarras] = qty),
+            else ...[
+              TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _busqueda = v),
+                decoration: InputDecoration(
+                  hintText: 'Buscar producto...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _busqueda.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _busqueda = '');
+                          },
+                        )
+                      : null,
                 ),
               ),
+              const SizedBox(height: 10),
+              if (productosFiltrados.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: Text(
+                      'Sin resultados para "$_busqueda"',
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
+                    ),
+                  ),
+                )
+              else
+                Builder(builder: (_) {
+                  const kMax = 10;
+                  final sel = productosFiltrados
+                      .where((p) => (_cantidades[p.codigoBarras] ?? 0) > 0)
+                      .toList();
+                  final noSel = productosFiltrados
+                      .where((p) => (_cantidades[p.codigoBarras] ?? 0) == 0)
+                      .toList();
+                  final cupoRestante = (kMax - sel.length).clamp(0, noSel.length);
+                  final visibles = [...sel, ...noSel.take(cupoRestante)];
+                  final restantes = noSel.length - cupoRestante;
+
+                  return Column(
+                    children: [
+                      ...visibles.map((p) => _ProductoRow(
+                            producto: p,
+                            cantidad: _cantidades[p.codigoBarras] ?? 0,
+                            fmt: fmt,
+                            isDark: isDark,
+                            jadeColor: jadeColor,
+                            jadeBg: jadeBg,
+                            onChanged: (qty) =>
+                                setState(() => _cantidades[p.codigoBarras] = qty),
+                          )),
+                      if (restantes > 0)
+                        _BuscarMasButton(
+                          restantes: restantes,
+                          onTap: () async {
+                            final items = productos
+                                .map((p) => ProductoSelectorItem(
+                                      codigo: p.codigoBarras,
+                                      nombre: p.nombre,
+                                      precio: p.precioUnitario,
+                                      stockDisponible: p.cantidadStock,
+                                    ))
+                                .toList();
+                            final result = await ProductoSelectorScreen.abrir(
+                              context,
+                              productos: items,
+                              cantidadesIniciales: Map.from(_cantidades),
+                              accentColor: jadeColor,
+                              accentBg: jadeBg,
+                            );
+                            if (result != null) {
+                              setState(() => result.forEach(
+                                    (k, v) => _cantidades[k] = v,
+                                  ));
+                            }
+                          },
+                        ),
+                    ],
+                  );
+                }),
+            ],
 
             const SizedBox(height: 24),
 
-            // ── Frecuencia ────────────────────────────────────────────────────
-            _SectionHeader(
+            // ── Foto de la venta (requerida) ──────────────────────────────────
+            const SectionHeader(
+              icon: Icons.photo_camera_outlined,
+              label: 'FOTO DE LA VENTA',
+            ),
+            const SizedBox(height: 12),
+            FotoPickerTile(
+              valor: _foto,
+              requerida: true,
+              mostrarError: _intentoRegistrar && _foto == null,
+              accentColor: jadeColor,
+              accentBg: jadeBg,
+              onChanged: (f) => setState(() => _foto = f),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── Frecuencia ───────────────────────────────────────────────────
+            const SectionHeader(
               icon: Icons.calendar_today_outlined,
               label: 'FRECUENCIA DE PAGO',
             ),
@@ -267,24 +384,26 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _FreqOption(
+                  child: FreqOption(
                     label: 'Diaria',
                     icon: Icons.today_outlined,
                     selected: _frecuencia == FrecuenciaPago.diaria,
+                    accentColor: jadeColor,
+                    accentBg: jadeBg,
                     onTap: () =>
                         setState(() => _frecuencia = FrecuenciaPago.diaria),
-                    colorScheme: colorScheme,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _FreqOption(
+                  child: FreqOption(
                     label: 'Semanal',
                     icon: Icons.date_range_outlined,
                     selected: _frecuencia == FrecuenciaPago.semanal,
+                    accentColor: jadeColor,
+                    accentBg: jadeBg,
                     onTap: () =>
                         setState(() => _frecuencia = FrecuenciaPago.semanal),
-                    colorScheme: colorScheme,
                   ),
                 ),
               ],
@@ -292,8 +411,8 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Cuotas ────────────────────────────────────────────────────────
-            _SectionHeader(
+            // ── Cuotas ───────────────────────────────────────────────────────
+            const SectionHeader(
               icon: Icons.payments_outlined,
               label: 'NÚMERO DE CUOTAS',
             ),
@@ -310,17 +429,24 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
                     height: 50,
                     decoration: BoxDecoration(
                       color: sel
-                          ? colorScheme.primary
-                          : colorScheme.surfaceContainerHighest,
+                          ? jadeColor
+                          : (isDark
+                              ? AppColors.darkInk100
+                              : AppColors.lightInk100),
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: sel
+                            ? jadeColor
+                            : (isDark
+                                ? AppColors.darkInk200
+                                : AppColors.lightInk200),
+                      ),
                     ),
                     child: Center(
                       child: Text(
                         '$n',
                         style: TextStyle(
-                          color: sel
-                              ? colorScheme.onPrimary
-                              : colorScheme.onSurface,
+                          color: sel ? Colors.white : cs.onSurface,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -333,24 +459,25 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Resumen ───────────────────────────────────────────────────────
+            // ── Resumen ─────────────────���────────────────────────────���───────
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                ),
               ),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Total:', style: textTheme.bodyMedium),
+                      Text('Total:', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
                       Text(
                         '\$${fmt.format(_subtotal)}',
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ],
                   ),
@@ -360,13 +487,14 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
                     children: [
                       Text(
                         'Cuota ${_frecuencia == FrecuenciaPago.diaria ? "diaria" : "semanal"}:',
-                        style: textTheme.bodyMedium,
+                        style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
                       ),
                       Text(
                         '\$${fmt.format(_montoCuota)}',
-                        style: textTheme.titleMedium?.copyWith(
-                          color: colorScheme.primary,
+                        style: TextStyle(
+                          color: jadeColor,
                           fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
                     ],
@@ -377,7 +505,7 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
 
             const SizedBox(height: 28),
 
-            // ── Botón registrar ───────────────────────────────────────────────
+            // ── Botón registrar ───────────────────���──────────────────────────
             SizedBox(
               height: 54,
               child: ElevatedButton(
@@ -388,15 +516,12 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
                         height: 22,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          color: colorScheme.onPrimary,
+                          color: cs.onPrimary,
                         ),
                       )
                     : const Text(
                         'Registrar Venta',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
               ),
             ),
@@ -408,120 +533,40 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
   }
 }
 
-// ── Widgets locales ───────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _SectionHeader({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return Row(
-      children: [
-        Icon(icon, color: colorScheme.primary, size: 16),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: textTheme.labelSmall?.copyWith(
-            color: colorScheme.primary,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Divider(color: colorScheme.outlineVariant)),
-      ],
-    );
-  }
-}
-
-class _FreqOption extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  final ColorScheme colorScheme;
-
-  const _FreqOption({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: selected
-              ? colorScheme.primaryContainer
-              : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? colorScheme.primary : Colors.transparent,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: selected
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
-              size: 22,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-                fontWeight:
-                    selected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+// ── _ProductoRow es único a esta pantalla (usa ProductoModel) ────────────���────
 class _ProductoRow extends StatelessWidget {
   final ProductoModel producto;
   final int cantidad;
   final NumberFormat fmt;
+  final bool isDark;
+  final Color jadeColor;
+  final Color jadeBg;
   final ValueChanged<int> onChanged;
 
   const _ProductoRow({
     required this.producto,
     required this.cantidad,
     required this.fmt,
+    required this.isDark,
+    required this.jadeColor,
+    required this.jadeBg,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final disponible = producto.cantidadStock;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant),
+        border: Border.all(
+          color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,58 +577,49 @@ class _ProductoRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   producto.nombre,
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
               ),
               Text(
                 '\$${fmt.format(producto.precioUnitario)}',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: jadeColor, fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ],
           ),
           const SizedBox(height: 2),
           Text(
             'Stock: $disponible',
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              _CounterBtn(
+              CounterButton(
                 icon: Icons.remove,
                 enabled: cantidad > 0,
-                colorScheme: colorScheme,
+                accentColor: jadeColor,
+                accentBg: jadeBg,
                 onTap: () => onChanged(cantidad - 1),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   '$cantidad',
-                  style: textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
-              _CounterBtn(
+              CounterButton(
                 icon: Icons.add,
                 enabled: cantidad < disponible,
-                colorScheme: colorScheme,
+                accentColor: jadeColor,
+                accentBg: jadeBg,
                 onTap: () => onChanged(cantidad + 1),
               ),
               const Spacer(),
               if (cantidad > 0)
                 Text(
                   '\$${fmt.format(producto.precioUnitario * cantidad)}',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                 ),
             ],
           ),
@@ -593,39 +629,43 @@ class _ProductoRow extends StatelessWidget {
   }
 }
 
-class _CounterBtn extends StatelessWidget {
-  final IconData icon;
-  final bool enabled;
+class _BuscarMasButton extends StatelessWidget {
+  final int restantes;
   final VoidCallback onTap;
-  final ColorScheme colorScheme;
-
-  const _CounterBtn({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-    required this.colorScheme,
-  });
+  const _BuscarMasButton({required this.restantes, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
+
     return GestureDetector(
-      onTap: enabled ? onTap : null,
+      onTap: onTap,
       child: Container(
-        width: 32,
-        height: 32,
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: enabled
-              ? colorScheme.primaryContainer
-              : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: enabled ? colorScheme.primary : colorScheme.outline,
-          ),
+          color: jadeBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: jadeColor.withAlpha(80)),
         ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_rounded, size: 18, color: jadeColor),
+            const SizedBox(width: 8),
+            Text(
+              'Buscar más ($restantes producto${restantes == 1 ? '' : 's'})',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: jadeColor,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.arrow_forward_ios_rounded, size: 13, color: jadeColor),
+          ],
         ),
       ),
     );

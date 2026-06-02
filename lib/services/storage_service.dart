@@ -20,6 +20,20 @@ class StorageService {
     return await uploadTask.ref.getDownloadURL();
   }
 
+  // Subir foto de cobro (comprobante de pago)
+  Future<String> subirFotoCobro({
+    required File foto,
+    required String tarjetaId,
+  }) async {
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final ref = _storage.ref().child('cobros/$tarjetaId/$ts.jpg');
+    final uploadTask = await ref.putFile(
+      foto,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    return await uploadTask.ref.getDownloadURL();
+  }
+
   // Eliminar foto
   Future<void> eliminarFoto(String url) async {
     try {
@@ -77,12 +91,18 @@ class GpsService {
     if (permission == LocationPermission.deniedForever) return null;
 
     return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
   }
 
   // Abrir configuración de ubicación del dispositivo
   Future<void> abrirConfiguracionUbicacion() async {
     await Geolocator.openLocationSettings();
+  }
+
+  // Stream que emite true/false cuando el servicio de ubicación cambia
+  Stream<bool> streamServicioHabilitado() {
+    return Geolocator.getServiceStatusStream()
+        .map((s) => s == ServiceStatus.enabled);
   }
 }

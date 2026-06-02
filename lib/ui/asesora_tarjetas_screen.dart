@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/tarjeta_model.dart';
+import '../core/theme/app_theme.dart';
 import 'asesora_nueva_venta_screen.dart';
+import 'venta_detalle_screen.dart';
 
 class AsesoraTarjetasScreen extends ConsumerStatefulWidget {
   const AsesoraTarjetasScreen({super.key});
@@ -41,7 +43,8 @@ class _AsesoraTarjetasScreenState
   Widget build(BuildContext context) {
     final perfil = ref.watch(usuarioActualProvider);
     final tarjetaState = ref.watch(tarjetaControllerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final fmt = NumberFormat('#,###', 'es_CO');
 
     final tarjetas = tarjetaState.tarjetas
@@ -73,39 +76,75 @@ class _AsesoraTarjetasScreenState
       ),
       body: Column(
         children: [
-          // Buscador
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _busqueda = v),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Buscar cliente...',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _busqueda.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _busqueda = '');
+                        },
+                      )
+                    : null,
               ),
             ),
           ),
-
-          // Lista
+          const SizedBox(height: 8),
           Expanded(
             child: tarjetaState.cargando
-                ? Center(
-                    child: CircularProgressIndicator(
-                      color: colorScheme.primary,
-                    ),
-                  )
+                ? const Center(child: CircularProgressIndicator())
                 : tarjetas.isEmpty
                 ? Center(
-                    child: Text(
-                      'No hay ventas registradas',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.darkInk100
+                                : AppColors.lightInk100,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Icon(
+                            Icons.credit_card_outlined,
+                            color: cs.onSurfaceVariant,
+                            size: 26,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          _busqueda.isNotEmpty
+                              ? 'Sin resultados para "$_busqueda"'
+                              : 'No hay ventas registradas',
+                          style: TextStyle(color: cs.onSurfaceVariant),
+                        ),
+                      ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     itemCount: tarjetas.length,
-                    itemBuilder: (_, i) =>
-                        _TarjetaCard(tarjeta: tarjetas[i], fmt: fmt),
+                    itemBuilder: (_, i) => _TarjetaCard(
+                      tarjeta: tarjetas[i],
+                      fmt: fmt,
+                      isDark: isDark,
+                      cs: cs,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VentaDetalleScreen(tarjeta: tarjetas[i]),
+                        ),
+                      ),
+                    ),
                   ),
           ),
         ],
@@ -117,32 +156,50 @@ class _AsesoraTarjetasScreenState
 class _TarjetaCard extends StatelessWidget {
   final TarjetaModel tarjeta;
   final NumberFormat fmt;
+  final bool isDark;
+  final ColorScheme cs;
+  final VoidCallback onTap;
 
-  const _TarjetaCard({required this.tarjeta, required this.fmt});
+  const _TarjetaCard({
+    required this.tarjeta,
+    required this.fmt,
+    required this.isDark,
+    required this.cs,
+    required this.onTap,
+  });
 
-  Color _estadoColor(ColorScheme cs) {
+  (Color, Color, String) get _estadoStyle {
     switch (tarjeta.estado) {
       case EstadoTarjeta.pagada:
-        return Colors.blue;
+        return (
+          isDark ? AppColors.darkJade : AppColors.brandJade,
+          isDark ? AppColors.darkJade50 : AppColors.lightJade50,
+          'Pagada',
+        );
       case EstadoTarjeta.vencida:
-        return cs.error;
+        return (
+          isDark ? AppColors.darkCoral : AppColors.coral,
+          isDark ? AppColors.darkCoral50 : AppColors.coral50,
+          'Vencida',
+        );
       case EstadoTarjeta.atrasada:
-        return Colors.orange;
+        return (
+          isDark ? AppColors.darkAmber : AppColors.amber,
+          isDark ? AppColors.darkAmber50 : AppColors.amber50,
+          'Atrasada',
+        );
       case EstadoTarjeta.activa:
-        return tarjeta.saldoPendiente > 0 ? Colors.orange : Colors.green;
-    }
-  }
-
-  String get _estadoLabel {
-    switch (tarjeta.estado) {
-      case EstadoTarjeta.pagada:
-        return 'Pagado';
-      case EstadoTarjeta.vencida:
-        return 'Vencida';
-      case EstadoTarjeta.atrasada:
-        return 'Atrasada';
-      case EstadoTarjeta.activa:
-        return tarjeta.saldoPendiente > 0 ? 'Al día' : 'Pagado';
+        return (
+          isDark ? AppColors.darkViolet : AppColors.violet,
+          isDark ? AppColors.darkViolet50 : AppColors.violet50,
+          tarjeta.saldoPendiente > 0 ? 'Al día' : 'Pagada',
+        );
+      case EstadoTarjeta.enDevolucion:
+        return (
+          isDark ? AppColors.darkViolet : AppColors.violet,
+          isDark ? AppColors.darkViolet50 : AppColors.violet50,
+          'En devolución',
+        );
     }
   }
 
@@ -153,30 +210,46 @@ class _TarjetaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final cardColor =
-        Theme.of(context).cardTheme.color ?? colorScheme.surface;
-    final estadoColor = _estadoColor(colorScheme);
+    final (estadoColor, estadoBg, estadoLabel) = _estadoStyle;
+    final violetColor = isDark ? AppColors.darkViolet : AppColors.violet;
+    final violetBg = isDark ? AppColors.darkViolet50 : AppColors.violet50;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(14),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 40 : 6),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: estadoColor.withValues(alpha: 0.2),
-            child: Text(
-              _iniciales,
-              style: TextStyle(
-                color: estadoColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: violetBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(
+              child: Text(
+                _iniciales,
+                style: TextStyle(
+                  color: violetColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
               ),
             ),
           ),
@@ -187,38 +260,46 @@ class _TarjetaCard extends StatelessWidget {
               children: [
                 Text(
                   tarjeta.nombreCliente,
-                  style: textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.5,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Deuda: \$${fmt.format(tarjeta.saldoPendiente)}',
-                  style: textTheme.bodySmall,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
-                const SizedBox(height: 4),
-                if (tarjeta.productos.isNotEmpty)
+                if (tarjeta.productos.isNotEmpty) ...[
+                  const SizedBox(height: 2),
                   Text(
                     tarjeta.productos.map((p) => p.nombreProducto).join(', '),
-                    style: textTheme.bodySmall,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                ],
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
+                    horizontal: 9,
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: estadoColor.withValues(alpha: 0.15),
+                    color: estadoBg,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    _estadoLabel,
+                    estadoLabel,
                     style: TextStyle(
                       color: estadoColor,
-                      fontSize: 12,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -231,18 +312,32 @@ class _TarjetaCard extends StatelessWidget {
             children: [
               Text(
                 '\$${fmt.format(tarjeta.totalVenta)}',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.bold,
+                style: TextStyle(
+                  color: violetColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
               ),
               const SizedBox(height: 4),
-              Text('${tarjeta.numCuotas} cuotas', style: textTheme.bodySmall),
-              Text(tarjeta.frecuenciaPago.name, style: textTheme.bodySmall),
+              Text(
+                '${tarjeta.numCuotas} cuotas',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                tarjeta.frecuenciaPago.name,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
         ],
       ),
+    ),
     );
   }
 }

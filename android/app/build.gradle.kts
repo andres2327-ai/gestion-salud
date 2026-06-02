@@ -3,8 +3,8 @@ plugins {
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
     // END: FlutterFire Configuration
-    id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // Flutter's built-in Kotlin support handles Kotlin automatically — no explicit KGP needed.
     id("dev.flutter.flutter-gradle-plugin")
 }
 

@@ -6,7 +6,7 @@ enum TipoPago { cuotas, contado }
 
 enum FrecuenciaPago { diaria, semanal }
 
-enum EstadoTarjeta { activa, pagada, vencida, atrasada }
+enum EstadoTarjeta { activa, pagada, vencida, atrasada, enDevolucion }
 
 const kZonas = [
   'Pueblo Bello',

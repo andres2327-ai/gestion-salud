@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
+import '../core/theme/app_theme.dart';
 
 class AsesoraPerfilScreen extends ConsumerWidget {
   const AsesoraPerfilScreen({super.key});
@@ -10,8 +11,8 @@ class AsesoraPerfilScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(usuarioActualProvider);
     final tarjetaState = ref.watch(tarjetaControllerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (perfil == null) return const SizedBox();
 
@@ -31,84 +32,123 @@ class AsesoraPerfilScreen extends ConsumerWidget {
     final fmt = NumberFormat('#,###', 'es_CO');
     final desde = DateFormat('MMM yyyy', 'es_ES').format(perfil.fechaCreacion);
 
+    final violetColor = isDark ? AppColors.darkViolet : AppColors.violet;
+    final violetBg = isDark ? AppColors.darkViolet50 : AppColors.violet50;
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
-            const SizedBox(height: 20),
-
-            // Avatar
-            Center(
-              child: CircleAvatar(
-                radius: 40,
-                backgroundColor: colorScheme.primaryContainer,
-                child: Text(
-                  initials,
-                  style: TextStyle(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 28,
+            // Avatar card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: violetBg,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Center(
+                      child: Text(
+                        initials,
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w600,
+                          color: violetColor,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Center(
-              child: Text(
-                perfil.nombre,
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Center(
-              child: Text(
-                'Asesora desde $desde',
-                style: textTheme.bodySmall,
+                  const SizedBox(height: 14),
+                  Text(
+                    perfil.nombre,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.01,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Asesora · desde $desde',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _InfoTile(
+                          label: 'Ventas',
+                          value: '$totalVentas',
+                          color: violetColor,
+                          bg: violetBg,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _InfoTile(
+                          label: 'Total vendido',
+                          value: _compactCurrency(totalVendido, fmt),
+                          color: violetColor,
+                          bg: violetBg,
+                          small: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // Stats
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    label: 'Ventas',
-                    value: '$totalVentas',
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: _StatCard(
-                    label: 'Vendido',
-                    value: '\$${_compactCurrency(totalVendido, fmt)}',
-                  ),
-                ),
-              ],
+            Text(
+              'CUENTA',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant,
+                letterSpacing: 0.06,
+              ),
             ),
-
-            const SizedBox(height: 28),
+            const SizedBox(height: 10),
 
             _MenuItem(
               icon: Icons.settings_outlined,
               label: 'Configuración',
               onTap: () {},
+              isDark: isDark,
+              cs: cs,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _MenuItem(
               icon: Icons.help_outline,
               label: 'Ayuda y Soporte',
               onTap: () {},
+              isDark: isDark,
+              cs: cs,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _MenuItem(
               icon: Icons.logout,
               label: 'Cerrar Sesión',
-              color: colorScheme.error,
+              color: isDark ? AppColors.darkCoral : AppColors.coral,
               onTap: () => _confirmarCerrarSesion(context, ref),
+              isDark: isDark,
+              cs: cs,
             ),
           ],
         ),
@@ -117,9 +157,7 @@ class AsesoraPerfilScreen extends ConsumerWidget {
   }
 
   String _compactCurrency(double value, NumberFormat fmt) {
-    if (value >= 1000000) {
-      return '\$${(value / 1000000).toStringAsFixed(1)}M';
-    }
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
     return fmt.format(value);
   }
 
@@ -129,19 +167,19 @@ class AsesoraPerfilScreen extends ConsumerWidget {
   ) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('¿Cerrar sesión?'),
         content: const Text('Se cerrará tu sesión actual.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             child: Text(
               'Cerrar sesión',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
             ),
           ),
         ],
@@ -153,36 +191,52 @@ class AsesoraPerfilScreen extends ConsumerWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
+class _InfoTile extends StatelessWidget {
   final String label;
   final String value;
+  final Color color;
+  final Color bg;
+  final bool small;
 
-  const _StatCard({required this.label, required this.value});
+  const _InfoTile({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.bg,
+    this.small = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final cardColor =
-        Theme.of(context).cardTheme.color ?? colorScheme.surface;
-
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
       decoration: BoxDecoration(
-        color: cardColor,
+        color: bg,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            value,
-            style: textTheme.titleLarge?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.bold,
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: cs.onSurfaceVariant,
+              letterSpacing: 0.04,
             ),
           ),
           const SizedBox(height: 4),
-          Text(label, style: textTheme.bodySmall),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: small ? 16 : 22,
+              fontWeight: FontWeight.w600,
+              color: color,
+              letterSpacing: small ? 0 : -0.01,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -194,47 +248,58 @@ class _MenuItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color? color;
+  final bool isDark;
+  final ColorScheme cs;
 
   const _MenuItem({
     required this.icon,
     required this.label,
     required this.onTap,
+    required this.isDark,
+    required this.cs,
     this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final c = color ?? colorScheme.onSurface;
-    final cardColor =
-        Theme.of(context).cardTheme.color ?? colorScheme.surface;
-
+    final c = color ?? cs.onSurface;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(14),
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+          ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: c, size: 22),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkInk100 : AppColors.lightInk100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: c, size: 18),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
-                style: textTheme.bodyLarge?.copyWith(
-                  color: c,
+                style: TextStyle(
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w500,
+                  color: c,
                 ),
               ),
             ),
             Icon(
               Icons.chevron_right,
-              color: c.withValues(alpha: 0.5),
-              size: 20,
+              color: c.withAlpha(80),
+              size: 18,
             ),
           ],
         ),

@@ -1,8 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/tarjeta_model.dart';
+import '../core/theme/app_theme.dart';
+import '../core/utils/app_snackbar.dart';
+import 'widgets/shared_widgets.dart';
 
 class AsesoraDevolucionScreen extends ConsumerStatefulWidget {
   final String asesoraUid;
@@ -16,11 +19,6 @@ class AsesoraDevolucionScreen extends ConsumerStatefulWidget {
 class _AsesoraDevolucionScreenState
     extends ConsumerState<AsesoraDevolucionScreen> {
   TarjetaModel? _tarjetaSeleccionada;
-
-  // ✅ FIX: lista de productos guardada en estado local, NO en FutureBuilder
-  List<TarjetaProductoModel> _productosDeVenta = [];
-  bool _cargandoProductos = false;
-
   TarjetaProductoModel? _productoSeleccionado;
   int _cantidad = 1;
   final _motivoCtrl = TextEditingController();
@@ -42,27 +40,6 @@ class _AsesoraDevolucionScreenState
   void dispose() {
     _motivoCtrl.dispose();
     super.dispose();
-  }
-
-  // ✅ FIX: carga productos una sola vez al seleccionar la tarjeta
-  Future<void> _cargarProductosDeTarjeta(TarjetaModel tarjeta) async {
-    setState(() {
-      _cargandoProductos = true;
-      _productosDeVenta = [];
-      _productoSeleccionado = null;
-      _cantidad = 1;
-    });
-
-    final productos = await ref
-        .read(tarjetaControllerProvider.notifier)
-        .obtenerProductosDeTarjeta(tarjeta.tarjetaId);
-
-    if (mounted) {
-      setState(() {
-        _productosDeVenta = productos;
-        _cargandoProductos = false;
-      });
-    }
   }
 
   double get _montoReembolso {
@@ -111,14 +88,8 @@ class _AsesoraDevolucionScreenState
     }
   }
 
-  void _snack(String msg, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: error ? Colors.red : Colors.green,
-      ),
-    );
-  }
+  void _snack(String msg, {bool error = false}) =>
+      appSnackbar(context, msg, error: error);
 
   @override
   Widget build(BuildContext context) {
@@ -126,53 +97,53 @@ class _AsesoraDevolucionScreenState
     final tarjetas = tarjetaState.tarjetas
         .where((t) => t.estado == EstadoTarjeta.activa)
         .toList();
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
+    final violetColor = isDark ? AppColors.darkViolet : AppColors.violet;
+    final amberColor = isDark ? AppColors.darkAmber : AppColors.amber;
+    final amberBg = isDark ? AppColors.darkAmber50 : AppColors.amber50;
+    final borderColor = isDark ? AppColors.darkInk200 : AppColors.lightInk200;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Solicitar Devolución',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Solicitar Devolución')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
 
           // ── Selector de venta ──────────────────────────────────────────
-          _Label('VENTA'),
+          const SectionLabel('VENTA'),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1C3A),
-              borderRadius: BorderRadius.circular(12),
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<TarjetaModel>(
                 isExpanded: true,
-                dropdownColor: const Color(0xFF1A1C3A),
                 value: _tarjetaSeleccionada,
-                hint: const Text(
+                hint: Text(
                   'Seleccionar venta...',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: cs.onSurfaceVariant),
                 ),
                 items: tarjetas.map((t) {
                   return DropdownMenuItem(
                     value: t,
                     child: Text(
                       '${t.nombreCliente} — \$${fmt.format(t.saldoPendiente)}',
-                      style: const TextStyle(color: Colors.white),
                     ),
                   );
                 }).toList(),
                 onChanged: (t) {
-                  setState(() => _tarjetaSeleccionada = t);
-                  if (t != null) _cargarProductosDeTarjeta(t);
+                  setState(() {
+                    _tarjetaSeleccionada = t;
+                    _productoSeleccionado = null;
+                    _cantidad = 1;
+                  });
                 },
               ),
             ),
@@ -181,82 +152,86 @@ class _AsesoraDevolucionScreenState
           const SizedBox(height: 20),
 
           // ── Selector de producto ───────────────────────────────────────
-          _Label('PRODUCTO'),
+          const SectionLabel('PRODUCTO'),
           const SizedBox(height: 10),
-          _cargandoProductos
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: CircularProgressIndicator(color: Colors.tealAccent),
+          Builder(builder: (_) {
+            final productos = _tarjetaSeleccionada?.productos ?? [];
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: borderColor),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<TarjetaProductoModel>(
+                  isExpanded: true,
+                  value: _productoSeleccionado,
+                  hint: Text(
+                    _tarjetaSeleccionada == null
+                        ? 'Primero selecciona una venta'
+                        : productos.isEmpty
+                            ? 'Sin productos en esta venta'
+                            : 'Seleccionar producto...',
+                    style: TextStyle(color: cs.onSurfaceVariant),
                   ),
-                )
-              : Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1C3A),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  // ✅ FIX: usa _productosDeVenta (lista estable en state local)
-                  // no un FutureBuilder que recrea objetos en cada render
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<TarjetaProductoModel>(
-                      isExpanded: true,
-                      dropdownColor: const Color(0xFF1A1C3A),
-                      value: _productoSeleccionado,
-                      hint: Text(
-                        _tarjetaSeleccionada == null
-                            ? 'Primero selecciona una venta'
-                            : _productosDeVenta.isEmpty
-                                ? 'Sin productos en esta venta'
-                                : 'Seleccionar producto...',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                      items: _productosDeVenta.map((p) {
-                        return DropdownMenuItem(
-                          value: p,
-                          child: Text(
-                            '${p.nombreProducto}  (x${p.cantidad})',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: _productosDeVenta.isEmpty
-                          ? null
-                          : (p) => setState(() {
-                                _productoSeleccionado = p;
-                                _cantidad = 1;
-                              }),
-                    ),
-                  ),
+                  items: productos.map((p) {
+                    return DropdownMenuItem(
+                      value: p,
+                      child: Text('${p.nombreProducto}  (x${p.cantidad})'),
+                    );
+                  }).toList(),
+                  onChanged: productos.isEmpty
+                      ? null
+                      : (p) => setState(() {
+                            _productoSeleccionado = p;
+                            _cantidad = 1;
+                          }),
                 ),
+              ),
+            );
+          }),
 
           const SizedBox(height: 20),
 
           // ── Cantidad ───────────────────────────────────────────────────
-          _Label('CANTIDAD A DEVOLVER'),
+          const SectionLabel('CANTIDAD A DEVOLVER'),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1C3A),
-              borderRadius: BorderRadius.circular(12),
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
             ),
             child: Row(children: [
-              _Btn(
+              CounterButton(
                 icon: Icons.remove,
+                enabled: _cantidad > 1,
+                accentColor: jadeColor,
+                accentBg: jadeBg,
+                size: 36,
                 onTap: _cantidad > 1 ? () => setState(() => _cantidad--) : null,
               ),
               Expanded(
                 child: Center(
                   child: Text(
                     '$_cantidad',
-                    style: const TextStyle(
-                      color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: cs.onSurface,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-              _Btn(
+              CounterButton(
                 icon: Icons.add,
+                enabled: _productoSeleccionado != null &&
+                    _cantidad < _productoSeleccionado!.cantidad,
+                accentColor: jadeColor,
+                accentBg: jadeBg,
+                size: 36,
                 onTap: _productoSeleccionado != null &&
                         _cantidad < _productoSeleccionado!.cantidad
                     ? () => setState(() => _cantidad++)
@@ -268,25 +243,13 @@ class _AsesoraDevolucionScreenState
           const SizedBox(height: 20),
 
           // ── Motivo ─────────────────────────────────────────────────────
-          _Label('MOTIVO'),
+          const SectionLabel('MOTIVO'),
           const SizedBox(height: 10),
           TextField(
             controller: _motivoCtrl,
             maxLines: 3,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: 'Describe el motivo de la devolución...',
-              hintStyle: const TextStyle(color: Colors.grey),
-              filled: true,
-              fillColor: const Color(0xFF1A1C3A),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.tealAccent),
-              ),
             ),
           ),
 
@@ -296,17 +259,19 @@ class _AsesoraDevolucionScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.orange.withAlpha(20),
+              color: amberBg,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.orange.withAlpha(60)),
+              border: Border.all(color: amberColor.withAlpha(60)),
             ),
-            child: const Row(children: [
-              Icon(Icons.info_outline, color: Colors.orange, size: 18),
-              SizedBox(width: 8),
-              Expanded(child: Text(
-                'La devolución queda sujeta a aprobación de la administradora.',
-                style: TextStyle(color: Colors.orange, fontSize: 12),
-              )),
+            child: Row(children: [
+              Icon(Icons.info_outline, color: amberColor, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'La devolución queda sujeta a aprobación de la administradora.',
+                  style: TextStyle(color: amberColor, fontSize: 12),
+                ),
+              ),
             ]),
           ),
 
@@ -315,18 +280,21 @@ class _AsesoraDevolucionScreenState
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1C3A),
-                borderRadius: BorderRadius.circular(12),
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: borderColor),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Monto a descontar:',
-                      style: TextStyle(color: Colors.grey)),
+                  Text(
+                    'Monto a descontar:',
+                    style: TextStyle(color: cs.onSurfaceVariant),
+                  ),
                   Text(
                     '\$${fmt.format(_montoReembolso)}',
-                    style: const TextStyle(
-                      color: Colors.tealAccent,
+                    style: TextStyle(
+                      color: violetColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -339,64 +307,38 @@ class _AsesoraDevolucionScreenState
           const SizedBox(height: 28),
 
           // ── Botón enviar ───────────────────────────────────────────────
-          GestureDetector(
-            onTap: _guardando ? null : _enviarSolicitud,
-            child: Container(
-              height: 54,
-              decoration: BoxDecoration(
-                color: _guardando ? Colors.grey : Colors.redAccent,
-                borderRadius: BorderRadius.circular(14),
+          SizedBox(
+            height: 54,
+            child: ElevatedButton(
+              onPressed: _guardando ? null : _enviarSolicitud,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppColors.darkCoral : AppColors.coral,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
-              child: Center(
-                child: _guardando
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Enviar Solicitud',
-                        style: TextStyle(
-                          color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              child: _guardando
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
                       ),
-              ),
+                    )
+                  : const Text(
+                      'Enviar Solicitud',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
 
           const SizedBox(height: 32),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Widgets locales ─────────────────────────────────────────────────────────
-
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label(this.text);
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-          color: Colors.tealAccent, fontSize: 11,
-          fontWeight: FontWeight.w700, letterSpacing: 1.2,
-        ),
-      );
-}
-
-class _Btn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
-  const _Btn({required this.icon, this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(
-          color: onTap != null ? Colors.tealAccent.withAlpha(30) : Colors.grey.withAlpha(20),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: onTap != null ? Colors.tealAccent : Colors.grey),
-        ),
-        child: Icon(icon, color: onTap != null ? Colors.tealAccent : Colors.grey, size: 18),
       ),
     );
   }

@@ -34,11 +34,11 @@ class CobroService {
     required String nombreCobrador,
     required String nombreCliente,
     required double monto,
+    required double saldoActual,
     String? observacion,
   }) async {
     final batch = _db.batch();
 
-    // Marcar cuota como cobrada
     batch.update(_cuotasCol.doc(cuotaId), {
       'estado': EstadoCuota.cobrada.name,
       'cobrador_uid': cobradorUid,
@@ -46,14 +46,20 @@ class CobroService {
       'observacion': observacion,
     });
 
-    // Descontar del saldo pendiente de la tarjeta
-    batch.update(_db.collection('tarjetas').doc(tarjetaId), {
-      'saldo_pendiente': FieldValue.increment(-monto),
-    });
+    final tarjetaRef = _db.collection('tarjetas').doc(tarjetaId);
+    if (monto >= saldoActual) {
+      batch.update(tarjetaRef, {
+        'saldo_pendiente': 0.0,
+        'estado': EstadoTarjeta.pagada.name,
+      });
+    } else {
+      batch.update(tarjetaRef, {
+        'saldo_pendiente': FieldValue.increment(-monto),
+      });
+    }
 
     await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
 
-    // Registrar comisión del cobrador (20%)
     await _comisionService
         .registrarComision(
           tipo: TipoComision.cobro,
@@ -64,27 +70,6 @@ class CobroService {
           montoBase: monto,
         )
         .timeout(const Duration(seconds: 5), onTimeout: () {});
-
-    // Verificar si la tarjeta quedó totalmente pagada
-    try {
-      await _verificarTarjetaPagada(tarjetaId);
-    } catch (_) {
-      // Sin conexión: la verificación ocurrirá cuando sincronice con el servidor.
-    }
-  }
-
-  Future<void> _verificarTarjetaPagada(String tarjetaId) async {
-    final cuotas = await _cuotasCol
-        .where('tarjeta_id', isEqualTo: tarjetaId)
-        .where('estado', isEqualTo: EstadoCuota.pendiente.name)
-        .get();
-
-    if (cuotas.docs.isEmpty) {
-      await _db.collection('tarjetas').doc(tarjetaId).update({
-        'estado': EstadoTarjeta.pagada.name,
-        'saldo_pendiente': 0,
-      }).timeout(const Duration(seconds: 5), onTimeout: () {});
-    }
   }
 
   // Cuotas pendientes de un cobrador (según sus asignaciones)
@@ -123,28 +108,36 @@ class CobroService {
     required String nombreCobrador,
     required String nombreCliente,
     required double monto,
+    required double saldoActual,
     String? observacion,
+    String? fotoUrl,
   }) async {
     final batch = _db.batch();
 
-    // Log del pago
     final pagoRef = _db.collection('pagos_registrados').doc();
     batch.set(pagoRef, {
       'tarjeta_id': tarjetaId,
       'cobrador_uid': cobradorUid,
       'monto': monto,
       'observacion': observacion,
+      'foto_url': fotoUrl,
       'fecha': FieldValue.serverTimestamp(),
     });
 
-    // Descontar del saldo pendiente
-    batch.update(_db.collection('tarjetas').doc(tarjetaId), {
-      'saldo_pendiente': FieldValue.increment(-monto),
-    });
+    final tarjetaRef = _db.collection('tarjetas').doc(tarjetaId);
+    if (monto >= saldoActual) {
+      batch.update(tarjetaRef, {
+        'saldo_pendiente': 0.0,
+        'estado': EstadoTarjeta.pagada.name,
+      });
+    } else {
+      batch.update(tarjetaRef, {
+        'saldo_pendiente': FieldValue.increment(-monto),
+      });
+    }
 
     await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
 
-    // Registrar comisión del cobrador (20%)
     await _comisionService
         .registrarComision(
           tipo: TipoComision.cobro,
@@ -155,12 +148,6 @@ class CobroService {
           montoBase: monto,
         )
         .timeout(const Duration(seconds: 5), onTimeout: () {});
-
-    try {
-      await _verificarTarjetaPagada(tarjetaId);
-    } catch (_) {
-      // Sin conexión: la verificación ocurrirá cuando sincronice con el servidor.
-    }
   }
 
   // Stream de pagos de una tarjeta (sin orderBy para evitar índice compuesto)
@@ -188,14 +175,20 @@ class CobroService {
 
   // Solicitar devolución (asesora o cobrador; pasa origen: 'cobrador' si aplica)
   Future<String> solicitarDevolucion(DevolucionModel devolucion, {String? origen}) async {
+    final batch = _db.batch();
+
     final ref = _devCol.doc();
-    await ref
-        .set({
-          ...devolucion.toMap(),
-          'estado': EstadoDevolucion.pendiente.name,
-          if (origen != null) 'origen': origen,
-        })
-        .timeout(const Duration(seconds: 5), onTimeout: () {});
+    batch.set(ref, {
+      ...devolucion.toMap(),
+      'estado': EstadoDevolucion.pendiente.name,
+      'origen': ?origen,
+    });
+
+    batch.update(_db.collection('tarjetas').doc(devolucion.tarjetaId), {
+      'estado': EstadoTarjeta.enDevolucion.name,
+    });
+
+    await batch.commit().timeout(const Duration(seconds: 5), onTimeout: () {});
     return ref.id;
   }
 
@@ -251,6 +244,7 @@ class CobroService {
       batch.update(_db.collection('tarjetas').doc(tarjetaId), {
         'saldo_pendiente': FieldValue.increment(-montoReembolso),
         'total_devuelto': FieldValue.increment(montoReembolso),
+        'estado': EstadoTarjeta.activa.name,
       });
 
       if (codigoBarrasProducto.isNotEmpty) {
@@ -259,33 +253,39 @@ class CobroService {
           {'cantidad_stock': FieldValue.increment(cantidadDevuelta)},
         );
       }
+    } else {
+      batch.update(_db.collection('tarjetas').doc(tarjetaId), {
+        'estado': EstadoTarjeta.activa.name,
+      });
     }
 
     await batch.commit().timeout(const Duration(seconds: 10), onTimeout: () {});
 
-    // Revertir vendidos en asignaciones_productos de la asesora
+    // Fire-and-forget: no bloquea la UI — se reintenta en la próxima sync
     if (nuevoEstado == EstadoDevolucion.aprobada &&
         codigoBarrasProducto.isNotEmpty) {
-      try {
-        final snap = await _db
-            .collection('asignaciones_productos')
-            .where('asesora_uid', isEqualTo: asesoraUid)
-            .where('codigo_barras', isEqualTo: codigoBarrasProducto)
-            .where('activa', isEqualTo: true)
-            .get();
-        if (snap.docs.isNotEmpty) {
-          await _db
-              .collection('asignaciones_productos')
-              .doc(snap.docs.first.id)
-              .update({
-                'cantidad_vendida': FieldValue.increment(-cantidadDevuelta),
-              })
-              .timeout(const Duration(seconds: 5), onTimeout: () {});
-        }
-      } catch (_) {
-        // Sin conexión: se reintentará al sincronizar con el servidor.
-      }
+      _revertirAsignacionProducto(asesoraUid, codigoBarrasProducto, cantidadDevuelta);
     }
+  }
+
+  void _revertirAsignacionProducto(
+    String asesoraUid,
+    String codigoBarras,
+    int cantidad,
+  ) {
+    _db
+        .collection('asignaciones_productos')
+        .where('asesora_uid', isEqualTo: asesoraUid)
+        .where('codigo_barras', isEqualTo: codigoBarras)
+        .where('activa', isEqualTo: true)
+        .get()
+        .then((snap) {
+      if (snap.docs.isNotEmpty) {
+        snap.docs.first.reference.update({
+          'cantidad_vendida': FieldValue.increment(-cantidad),
+        }).catchError((_) {});
+      }
+    }).catchError((_) {});
   }
 
   // Devoluciones del día de hoy
@@ -293,14 +293,27 @@ class CobroService {
     final hoy = DateTime.now();
     final inicio = DateTime(hoy.year, hoy.month, hoy.day);
     final fin = inicio.add(const Duration(days: 1));
-    final snap = await _devCol
+    final agg = await _devCol
         .where(
           'fecha_devolucion',
           isGreaterThanOrEqualTo: Timestamp.fromDate(inicio),
         )
         .where('fecha_devolucion', isLessThan: Timestamp.fromDate(fin))
+        .count()
         .get();
-    return snap.docs.length;
+    return agg.count ?? 0;
+  }
+
+  // Descuento quincena asesora: 20% de devoluciones aprobadas sin pagar
+  Future<double> deduccionDevolucionesAsesora(String asesoraUid) async {
+    final snap = await _devCol
+        .where('asesora_uid', isEqualTo: asesoraUid)
+        .where('estado', isEqualTo: EstadoDevolucion.aprobada.name)
+        .get(const GetOptions(source: Source.server));
+    return snap.docs.fold<double>(0.0, (acc, d) {
+      final monto = (d.data()['monto_reembolso'] ?? 0.0).toDouble();
+      return acc + monto * 0.20;
+    });
   }
 
   // ─── ASIGNACIONES ─────────────────────────────────────────────────────────

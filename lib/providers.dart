@@ -9,6 +9,7 @@ import 'services/storage_service.dart';
 import 'services/dashboard_service.dart';
 import 'services/asignacion_producto_service.dart';
 import 'services/comision_service.dart';
+import 'services/prestamo_service.dart';
 
 import 'controllers/auth_controller.dart';
 import 'controllers/usuario_controller.dart';
@@ -18,6 +19,7 @@ import 'controllers/cobro_controller.dart';
 import 'controllers/dashboard_controller.dart';
 import 'controllers/asignacion_producto_controller.dart';
 import 'controllers/comision_controller.dart';
+import 'controllers/prestamo_controller.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SERVICES (singleton, sin estado)
@@ -170,6 +172,15 @@ final comisionControllerProvider =
       return ComisionController(ref.watch(comisionServiceProvider));
     });
 
+final prestamoServiceProvider = Provider<PrestamoService>(
+  (ref) => PrestamoService(),
+);
+
+final prestamoControllerProvider =
+    StateNotifierProvider<PrestamoController, PrestamoState>((ref) {
+      return PrestamoController(ref.watch(prestamoServiceProvider));
+    });
+
 // ══════════════════════════════════════════════════════════════════════════════
 // ASIGNACIONES DE PRODUCTOS A ASESORAS
 // ══════════════════════════════════════════════════════════════════════════════
@@ -178,14 +189,15 @@ final asignacionProductoServiceProvider = Provider<AsignacionProductoService>(
   (ref) => AsignacionProductoService(),
 );
 
-final asignacionProductoControllerProvider = StateNotifierProvider<
-  AsignacionProductoController,
-  AsignacionProductoState
->((ref) {
-  return AsignacionProductoController(
-    ref.watch(asignacionProductoServiceProvider),
-  );
-});
+final asignacionProductoControllerProvider =
+    StateNotifierProvider<
+      AsignacionProductoController,
+      AsignacionProductoState
+    >((ref) {
+      return AsignacionProductoController(
+        ref.watch(asignacionProductoServiceProvider),
+      );
+    });
 
 /// Productos asignados a la asesora actual (shortcut)
 final productosAsignadosProvider = Provider((ref) {

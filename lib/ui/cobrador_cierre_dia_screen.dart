@@ -7,6 +7,7 @@ import '../providers.dart';
 import '../models/tarjeta_model.dart';
 import '../models/comision_model.dart';
 import '../services/comision_service.dart';
+import '../core/theme/app_theme.dart';
 
 class CobradorCierreDiaScreen extends ConsumerStatefulWidget {
   const CobradorCierreDiaScreen({super.key});
@@ -18,7 +19,6 @@ class CobradorCierreDiaScreen extends ConsumerStatefulWidget {
 
 class _CobradorCierreDiaScreenState
     extends ConsumerState<CobradorCierreDiaScreen> {
-  // For each tarjeta: null = not visited, true = collected, false = skipped
   final Map<String, bool?> _resultados = {};
   final Map<String, String> _motivos = {};
   bool _cargando = false;
@@ -40,7 +40,6 @@ class _CobradorCierreDiaScreenState
     final lista = await ref
         .read(comisionControllerProvider.notifier)
         .cargarQuincenaActual(perfil.uid);
-    // Filter to today only
     final hoy = DateTime.now();
     setState(() {
       _comisionesHoy = lista.where((c) {
@@ -89,18 +88,15 @@ class _CobradorCierreDiaScreenState
     );
   }
 
-  double get _totalCobradoHoy {
-    return _comisionesHoy.fold(0.0, (s, c) => s + c.montoBase);
-  }
-
-  double get _totalComisionHoy {
-    return _comisionesHoy.fold(0.0, (s, c) => s + c.montoComision);
-  }
+  double get _totalCobradoHoy =>
+      _comisionesHoy.fold(0.0, (s, c) => s + c.montoBase);
+  double get _totalComisionHoy =>
+      _comisionesHoy.fold(0.0, (s, c) => s + c.montoComision);
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final tarjetasCobrador =
         ref.watch(tarjetaControllerProvider).tarjetasCobrador;
     final asignaciones = ref.watch(cobroControllerProvider).asignaciones;
@@ -119,136 +115,161 @@ class _CobradorCierreDiaScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Cierre del Día',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
+        title: const Text('Cierre del Día'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, size: 20),
             onPressed: _cargarComisiones,
           ),
         ],
       ),
       body: _cargando
-          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
+          ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Summary cards
+                // Summary row
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: Row(
                     children: [
                       _SummaryCard(
                         label: 'Cobradas',
                         value: '${cobradas.length}',
-                        color: Colors.green,
+                        color: isDark ? AppColors.darkJade : AppColors.brandJade,
+                        bg: isDark ? AppColors.darkJade50 : AppColors.lightJade50,
                         icon: Icons.check_circle_outline,
                       ),
                       const SizedBox(width: 10),
                       _SummaryCard(
                         label: 'Sin cobrar',
                         value: '${noCobradas.length}',
-                        color: Colors.red,
+                        color: isDark ? AppColors.darkCoral : AppColors.coral,
+                        bg: isDark ? AppColors.darkCoral50 : AppColors.coral50,
                         icon: Icons.cancel_outlined,
                       ),
                       const SizedBox(width: 10),
                       _SummaryCard(
                         label: 'Sin visitar',
                         value: '$sinVisitar',
-                        color: Colors.grey,
+                        color: cs.onSurfaceVariant,
+                        bg: isDark ? AppColors.darkInk100 : AppColors.lightInk100,
                         icon: Icons.pending_outlined,
                       ),
                     ],
                   ),
                 ),
 
-                // Commission summary
+                // Commission banner
                 if (_comisionesHoy.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: colorScheme.primary.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.attach_money, color: colorScheme.primary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Cobrado hoy: \$${fmt.format(_totalCobradoHoy)}',
-                                  style: textTheme.bodyMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600)),
-                              Text(
-                                  'Tu comisión (20%): \$${fmt.format(_totalComisionHoy)}',
-                                  style: textTheme.bodySmall
-                                      ?.copyWith(color: colorScheme.primary)),
-                            ],
-                          ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkJade50 : AppColors.lightJade50,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: (isDark ? AppColors.darkJade : AppColors.brandJade)
+                              .withAlpha(60),
                         ),
-                      ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.attach_money,
+                            color: isDark ? AppColors.darkJade : AppColors.brandJade,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Cobrado hoy: \$${fmt.format(_totalCobradoHoy)}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Tu comisión (20%): \$${fmt.format(_totalComisionHoy)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? AppColors.darkJade : AppColors.brandJade,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'MIS TARJETAS DE HOY',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurfaceVariant,
+                        letterSpacing: 0.06,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
 
                 Expanded(
                   child: asignaciones.isEmpty
                       ? Center(
-                          child: Text('No tienes tarjetas asignadas',
-                              style: textTheme.bodyMedium),
+                          child: Text(
+                            'No tienes tarjetas asignadas',
+                            style: TextStyle(color: cs.onSurfaceVariant),
+                          ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
                           itemCount: asignaciones.length,
                           itemBuilder: (_, i) {
                             final asig = asignaciones[i];
                             final tarjeta = tarjetasCobrador
-                                .where(
-                                    (t) => t.tarjetaId == asig.tarjetaId)
+                                .where((t) => t.tarjetaId == asig.tarjetaId)
                                 .firstOrNull;
                             final resultado = _resultados[asig.tarjetaId];
                             final motivo = _motivos[asig.tarjetaId];
 
+                            Color borderColor = isDark
+                                ? AppColors.darkInk200
+                                : AppColors.lightInk200;
+                            Color bgColor = cs.surface;
+                            if (resultado == true) {
+                              borderColor =
+                                  (isDark ? AppColors.darkJade : AppColors.brandJade)
+                                      .withAlpha(100);
+                              bgColor =
+                                  (isDark ? AppColors.darkJade50 : AppColors.lightJade50);
+                            } else if (resultado == false) {
+                              borderColor =
+                                  (isDark ? AppColors.darkCoral : AppColors.coral)
+                                      .withAlpha(100);
+                              bgColor =
+                                  (isDark ? AppColors.darkCoral50 : AppColors.coral50);
+                            }
+
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
+                              margin: const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: resultado == null
-                                    ? Theme.of(context).cardTheme.color
-                                    : resultado
-                                        ? Colors.green.withValues(alpha: 0.08)
-                                        : Colors.red.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(12),
-                                border: resultado == null
-                                    ? null
-                                    : Border.all(
-                                        color: resultado
-                                            ? Colors.green.withValues(alpha: 0.4)
-                                            : Colors.red.withValues(alpha: 0.4),
-                                      ),
+                                color: bgColor,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: borderColor),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,25 +279,33 @@ class _CobradorCierreDiaScreenState
                                       Expanded(
                                         child: Text(
                                           asig.nombreCliente,
-                                          style: textTheme.bodyLarge?.copyWith(
-                                              fontWeight: FontWeight.bold),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                       if (tarjeta != null)
                                         Text(
                                           '\$${fmt.format(tarjeta.montoCuota)}',
-                                          style: textTheme.bodyMedium?.copyWith(
-                                            color: colorScheme.primary,
-                                            fontWeight: FontWeight.bold,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark
+                                                ? AppColors.darkJade
+                                                : AppColors.brandJade,
                                           ),
                                         ),
                                     ],
                                   ),
                                   if (tarjeta != null) ...[
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 3),
                                     Text(
                                       'Saldo: \$${fmt.format(tarjeta.saldoPendiente)}',
-                                      style: textTheme.bodySmall,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: cs.onSurfaceVariant,
+                                      ),
                                     ),
                                   ],
                                   if (motivo != null)
@@ -284,8 +313,12 @@ class _CobradorCierreDiaScreenState
                                       padding: const EdgeInsets.only(top: 4),
                                       child: Text(
                                         'Motivo: $motivo',
-                                        style: textTheme.bodySmall?.copyWith(
-                                            color: Colors.red),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark
+                                              ? AppColors.darkCoral
+                                              : AppColors.coral,
+                                        ),
                                       ),
                                     ),
                                   const SizedBox(height: 10),
@@ -297,20 +330,26 @@ class _CobradorCierreDiaScreenState
                                               ? null
                                               : () => _marcarResultado(
                                                   asig.tarjetaId, false),
-                                          icon: const Icon(Icons.close, size: 16),
+                                          icon: const Icon(Icons.close, size: 15),
                                           label: const Text('No cobrado'),
                                           style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.red,
+                                            foregroundColor: isDark
+                                                ? AppColors.darkCoral
+                                                : AppColors.coral,
                                             side: BorderSide(
                                               color: resultado == false
-                                                  ? Colors.red
-                                                  : Colors.grey,
+                                                  ? (isDark
+                                                      ? AppColors.darkCoral
+                                                      : AppColors.coral)
+                                                  : (isDark
+                                                      ? AppColors.darkInk300
+                                                      : AppColors.lightInk300),
                                             ),
                                             padding: const EdgeInsets.symmetric(
                                                 vertical: 8),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(10),
                                             ),
                                           ),
                                         ),
@@ -322,16 +361,20 @@ class _CobradorCierreDiaScreenState
                                               ? null
                                               : () => _marcarResultado(
                                                   asig.tarjetaId, true),
-                                          icon: const Icon(Icons.check, size: 16),
+                                          icon: const Icon(Icons.check, size: 15),
                                           label: const Text('Cobrado'),
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green,
-                                            foregroundColor: Colors.white,
+                                            backgroundColor: isDark
+                                                ? AppColors.darkJade
+                                                : AppColors.brandJade,
+                                            foregroundColor: isDark
+                                                ? AppColors.darkBg
+                                                : Colors.white,
                                             padding: const EdgeInsets.symmetric(
                                                 vertical: 8),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(10),
                                             ),
                                           ),
                                         ),
@@ -345,10 +388,9 @@ class _CobradorCierreDiaScreenState
                         ),
                 ),
 
-                // Submit report button
                 if (asignaciones.isNotEmpty && sinVisitar == 0)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -357,11 +399,9 @@ class _CobradorCierreDiaScreenState
                         icon: const Icon(Icons.summarize_outlined, size: 18),
                         label: const Text('Ver Resumen del Día'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                       ),
@@ -394,26 +434,26 @@ class _CobradorCierreDiaScreenState
           children: [
             _ResumenRow(
               icon: Icons.check_circle,
-              color: Colors.green,
+              color: AppColors.brandJade,
               label: 'Cobradas',
               value: '${cobradas.length} tarjetas',
             ),
             _ResumenRow(
               icon: Icons.cancel,
-              color: Colors.red,
+              color: AppColors.coral,
               label: 'Sin cobrar',
               value: '${noCobradas.length} tarjetas',
             ),
             const Divider(),
             _ResumenRow(
               icon: Icons.attach_money,
-              color: Colors.teal,
+              color: AppColors.brandJade,
               label: 'Total cobrado',
               value: '\$${fmt2.format(totalCobrado)}',
             ),
             _ResumenRow(
               icon: Icons.percent,
-              color: Colors.purple,
+              color: AppColors.violet,
               label: 'Tu comisión (${(ComisionService.kPorcentajeComision * 100).toInt()}%)',
               value: '\$${fmt2.format(totalCobrado * ComisionService.kPorcentajeComision)}',
             ),
@@ -421,7 +461,10 @@ class _CobradorCierreDiaScreenState
             Text(
               'Entrega \$${fmt2.format(totalCobrado)} al administrador '
               'al finalizar tu ruta.',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -440,12 +483,14 @@ class _SummaryCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final Color bg;
   final IconData icon;
 
   const _SummaryCard({
     required this.label,
     required this.value,
     required this.color,
+    required this.bg,
     required this.icon,
   });
 
@@ -453,23 +498,33 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withAlpha(60)),
         ),
         child: Column(
           children: [
             Icon(icon, color: color, size: 20),
-            const SizedBox(height: 4),
-            Text(value,
-                style: TextStyle(
-                    color: color,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold)),
-            Text(label,
-                style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            const SizedBox(height: 5),
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.01,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: color.withAlpha(180),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),
@@ -499,8 +554,10 @@ class _ResumenRow extends StatelessWidget {
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 8),
           Expanded(child: Text(label)),
-          Text(value,
-              style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );

@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
 
-// Estado del auth
 class AuthState {
   final User? firebaseUser;
   final UsuarioModel? perfil;
@@ -38,6 +37,10 @@ class AuthState {
 class AuthController extends StateNotifier<AuthState> {
   final AuthService _authService;
 
+  // Prevents the null authStateChanges event (from signOut during sign-in)
+  // from resetting the loading state mid-flow.
+  bool _signingIn = false;
+
   AuthController(this._authService) : super(const AuthState()) {
     _init();
   }
@@ -45,42 +48,46 @@ class AuthController extends StateNotifier<AuthState> {
   void _init() {
     _authService.authStateChanges.listen((user) async {
       if (user == null) {
-        state = const AuthState();
+        if (!_signingIn) state = const AuthState();
         return;
       }
 
+      _signingIn = false;
       state = state.copyWith(cargando: true, firebaseUser: user, error: null);
       try {
         final perfil = await _authService.obtenerPerfil(user.uid);
         if (perfil != null && perfil.activo) {
           state = AuthState(firebaseUser: user, perfil: perfil);
         } else {
-          // Usuario inactivo o sin perfil → cerrar sesión
-          await _authService.signOut();
           state = const AuthState(error: 'Usuario no autorizado o inactivo.');
+          await _authService.signOut();
         }
       } catch (e) {
-        state = AuthState(error: 'Error al cargar perfil: ${e.toString()}');
+        state = const AuthState(error: 'Error al cargar perfil. Intenta de nuevo.');
+        await _authService.signOut();
       }
     });
   }
 
   Future<void> signIn(String email, String password) async {
+    _signingIn = true;
     state = state.copyWith(cargando: true, error: null);
     try {
+      // Si ya hay una sesión abierta (de un intento fallido), la cerramos
+      // para garantizar que authStateChanges dispare con el nuevo usuario.
+      if (_authService.currentUser != null) {
+        await _authService.signOut();
+      }
       await _authService.signIn(email, password);
       // El listener de authStateChanges completará el resto
     } on FirebaseAuthException catch (e) {
-      state = AuthState(
-        cargando: false,
-        error: _mensajeError(e.code),
-      );
+      _signingIn = false;
+      state = AuthState(cargando: false, error: _mensajeError(e.code));
     } on FirebaseException catch (e) {
-      state = AuthState(
-        cargando: false,
-        error: _mensajeError(e.code),
-      );
+      _signingIn = false;
+      state = AuthState(cargando: false, error: _mensajeError(e.code));
     } catch (e) {
+      _signingIn = false;
       state = AuthState(
         cargando: false,
         error: 'Error inesperado: ${e.toString()}',
@@ -106,9 +113,10 @@ class AuthController extends StateNotifier<AuthState> {
   String _mensajeError(String code) {
     switch (code) {
       case 'user-not-found':
-        return 'Usuario no encontrado.';
       case 'wrong-password':
-        return 'Contraseña incorrecta.';
+      case 'invalid-credential':
+      case 'invalid-login-credentials':
+        return 'Correo o contraseña incorrectos.';
       case 'invalid-email':
         return 'Correo electrónico inválido.';
       case 'user-disabled':
@@ -117,8 +125,10 @@ class AuthController extends StateNotifier<AuthState> {
         return 'Demasiados intentos. Intenta más tarde.';
       case 'network-request-failed':
         return 'Error de conexión. Verifica tu internet.';
+      case 'operation-not-allowed':
+        return 'Inicio de sesión no habilitado. Contacta al administrador.';
       default:
-        return 'Error al iniciar sesión. Intenta nuevamente.';
+        return 'Error al iniciar sesión ($code). Intenta de nuevo.';
     }
   }
 }

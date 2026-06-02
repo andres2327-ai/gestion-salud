@@ -1,8 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/tarjeta_model.dart';
+import '../core/theme/app_theme.dart';
+import '../core/utils/app_snackbar.dart';
+import 'widgets/shared_widgets.dart';
 
 class AdminDevolucionesScreen extends ConsumerStatefulWidget {
   const AdminDevolucionesScreen({super.key});
@@ -14,12 +17,15 @@ class AdminDevolucionesScreen extends ConsumerStatefulWidget {
 
 class _AdminDevolucionesScreenState
     extends ConsumerState<AdminDevolucionesScreen> {
+  // Tracks which devolution is currently being resolved (per-card loading)
+  String? _procesandoId;
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.read(cobroControllerProvider.notifier).escucharDevoluciones();
-    });
+    Future.microtask(
+      () => ref.read(cobroControllerProvider.notifier).escucharDevoluciones(),
+    );
   }
 
   @override
@@ -28,6 +34,8 @@ class _AdminDevolucionesScreenState
     final perfil = ref.watch(usuarioActualProvider);
     final fmt = NumberFormat('#,###', 'es_CO');
     final datefmt = DateFormat('dd/MM/yyyy');
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final pendientes = cobroState.devoluciones
         .where((d) => d.estado == EstadoDevolucion.pendiente)
@@ -36,102 +44,114 @@ class _AdminDevolucionesScreenState
         .where((d) => d.estado != EstadoDevolucion.pendiente)
         .toList();
 
+    // Only show full-screen spinner on the very first load (empty + loading)
+    final cargandoInicial = cobroState.cargando && cobroState.devoluciones.isEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
-            const Text(
-              'Devoluciones',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Devoluciones'),
             if (pendientes.isNotEmpty) ...[
               const SizedBox(width: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withAlpha(40),
-                  borderRadius: BorderRadius.circular(10),
+                  color: isDark ? AppColors.darkAmber50 : AppColors.amber50,
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   '${pendientes.length}',
-                  style: const TextStyle(
-                    color: Colors.orange,
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkAmber : AppColors.amber,
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ],
         ),
-        elevation: 0,
       ),
-      body: cobroState.cargando
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.tealAccent),
-            )
+      body: cargandoInicial
+          ? const Center(child: CircularProgressIndicator())
           : cobroState.devoluciones.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.assignment_return_outlined,
-                    color: Colors.grey,
-                    size: 48,
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.darkInk100
+                              : AppColors.lightInk100,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Icon(
+                          Icons.assignment_return_outlined,
+                          color: cs.onSurfaceVariant,
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'No hay devoluciones',
+                        style: TextStyle(color: cs.onSurfaceVariant),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 12),
-                  Text(
-                    'No hay devoluciones',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (pendientes.isNotEmpty) ...[
-                  _SectionLabel('PENDIENTES (${pendientes.length})'),
-                  const SizedBox(height: 8),
-                  ...pendientes.map(
-                    (d) => _DevolucionCard(
-                      devolucion: d,
-                      fmt: fmt,
-                      datefmt: datefmt,
-                      onAprobar: () =>
-                          _resolver(context, d, true, perfil?.uid ?? ''),
-                      onRechazar: () =>
-                          _resolver(context, d, false, perfil?.uid ?? ''),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (resueltas.isNotEmpty) ...[
-                  _SectionLabel('HISTORIAL (${resueltas.length})'),
-                  const SizedBox(height: 8),
-                  ...resueltas.map(
-                    (d) => _DevolucionCard(
-                      devolucion: d,
-                      fmt: fmt,
-                      datefmt: datefmt,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    if (pendientes.isNotEmpty) ...[
+                      SectionLabel('PENDIENTES (${pendientes.length})'),
+                      const SizedBox(height: 10),
+                      ...pendientes.map(
+                        (d) => _DevolucionCard(
+                          devolucion: d,
+                          fmt: fmt,
+                          datefmt: datefmt,
+                          isDark: isDark,
+                          cs: cs,
+                          procesando: _procesandoId == d.devolucionId,
+                          onAprobar: _procesandoId != null
+                              ? null
+                              : () => _resolver(d, true, perfil?.uid ?? ''),
+                          onRechazar: _procesandoId != null
+                              ? null
+                              : () => _resolver(d, false, perfil?.uid ?? ''),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    if (resueltas.isNotEmpty) ...[
+                      SectionLabel('HISTORIAL (${resueltas.length})'),
+                      const SizedBox(height: 10),
+                      ...resueltas.map(
+                        (d) => _DevolucionCard(
+                          devolucion: d,
+                          fmt: fmt,
+                          datefmt: datefmt,
+                          isDark: isDark,
+                          cs: cs,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
     );
   }
 
   Future<void> _resolver(
-    BuildContext context,
     DevolucionModel d,
     bool aprobada,
     String adminUid,
   ) async {
+    setState(() => _procesandoId = d.devolucionId);
+
     final ok = await ref
         .read(cobroControllerProvider.notifier)
         .resolverDevolucion(
@@ -145,22 +165,16 @@ class _AdminDevolucionesScreenState
           codigoBarrasProducto: d.codigoBarras,
         );
 
-    if (context.mounted) {
-      final fmt = NumberFormat('#,###', 'es_CO');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ok
-                ? aprobada
-                    ? '\$${fmt.format(d.montoReembolso)} descontados de la tarjeta de ${d.nombreCliente}'
-                    : 'Devolución rechazada'
-                : 'Error al procesar la devolución',
-          ),
-          backgroundColor:
-              ok ? (aprobada ? Colors.green : Colors.orange) : Colors.red,
-        ),
-      );
-    }
+    if (!mounted) return;
+    setState(() => _procesandoId = null);
+
+    final fmt = NumberFormat('#,###', 'es_CO');
+    final msg = ok
+        ? aprobada
+            ? '\$${fmt.format(d.montoReembolso)} descontados · ${d.nombreCliente}'
+            : 'Devolución rechazada'
+        : 'Error al procesar la devolución';
+    appSnackbar(context, msg, error: !ok);
   }
 }
 
@@ -172,61 +186,86 @@ class _DevolucionCard extends StatelessWidget {
   final DateFormat datefmt;
   final VoidCallback? onAprobar;
   final VoidCallback? onRechazar;
+  final bool isDark;
+  final ColorScheme cs;
+  final bool procesando;
 
   const _DevolucionCard({
     required this.devolucion,
     required this.fmt,
     required this.datefmt,
+    required this.isDark,
+    required this.cs,
     this.onAprobar,
     this.onRechazar,
+    this.procesando = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final isPending = devolucion.estado == EstadoDevolucion.pendiente;
 
-    final (estadoLabel, estadoColor) = switch (devolucion.estado) {
-      EstadoDevolucion.pendiente => ('Pendiente', Colors.orange),
-      EstadoDevolucion.aprobada => ('Aprobada', Colors.green),
-      EstadoDevolucion.rechazada => ('Rechazada', Colors.red),
+    final (estadoLabel, estadoColor, estadoBg) = switch (devolucion.estado) {
+      EstadoDevolucion.pendiente => (
+          'Pendiente',
+          isDark ? AppColors.darkAmber : AppColors.amber,
+          isDark ? AppColors.darkAmber50 : AppColors.amber50,
+        ),
+      EstadoDevolucion.aprobada => (
+          'Aprobada',
+          isDark ? AppColors.darkJade : AppColors.brandJade,
+          isDark ? AppColors.darkJade50 : AppColors.lightJade50,
+        ),
+      EstadoDevolucion.rechazada => (
+          'Rechazada',
+          isDark ? AppColors.darkCoral : AppColors.coral,
+          isDark ? AppColors.darkCoral50 : AppColors.coral50,
+        ),
     };
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1C3A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: estadoColor.withAlpha(40)),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: estadoColor.withAlpha(isPending ? 80 : 40),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 40 : 6),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
                   devolucion.nombreCliente,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.5,
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                 decoration: BoxDecoration(
-                  color: estadoColor.withAlpha(30),
+                  color: estadoBg,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   estadoLabel,
                   style: TextStyle(
                     color: estadoColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -235,21 +274,21 @@ class _DevolucionCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             devolucion.nombreProducto,
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
               Text(
                 '${devolucion.cantidadDevuelta} unidad(es) · ',
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
               Text(
                 '\$${fmt.format(devolucion.montoReembolso)}',
-                style: const TextStyle(
-                  color: Colors.tealAccent,
+                style: TextStyle(
+                  color: isDark ? AppColors.darkJade : AppColors.brandJade,
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -257,48 +296,67 @@ class _DevolucionCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Motivo: ${devolucion.motivo}',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
             datefmt.format(devolucion.fechaDevolucion),
-            style: const TextStyle(color: Colors.grey, fontSize: 11),
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
           ),
           if (isPending) ...[
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onRechazar,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+            procesando
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: isDark ? AppColors.darkJade : AppColors.brandJade,
+                        ),
                       ),
                     ),
-                    child: const Text('Rechazar'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: onAprobar,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.tealAccent,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onRechazar,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor:
+                                isDark ? AppColors.darkCoral : AppColors.coral,
+                            side: BorderSide(
+                              color: isDark ? AppColors.darkCoral : AppColors.coral,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text('Rechazar'),
+                        ),
                       ),
-                    ),
-                    child: const Text('Aprobar'),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: onAprobar,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                isDark ? AppColors.darkJade : AppColors.brandJade,
+                            foregroundColor:
+                                isDark ? AppColors.darkBg : Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text('Aprobar'),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ],
         ],
       ),
@@ -306,20 +364,3 @@ class _DevolucionCard extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: Colors.tealAccent,
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.2,
-      ),
-    );
-  }
-}

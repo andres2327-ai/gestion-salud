@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers.dart';
 import '../models/usuario_model.dart';
-import '../utils/formato_helper.dart';
+import '../core/theme/app_theme.dart';
 import 'admin_asignar_productos_screen.dart';
 import 'admin_asignar_tarjetas_screen.dart';
 
@@ -25,15 +25,16 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
   @override
   Widget build(BuildContext context) {
     final usuarioState = ref.watch(usuarioControllerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Usuarios'),
         actions: [
           IconButton(
-            icon: Icon(Icons.logout, color: colorScheme.error),
+            icon: Icon(Icons.logout,
+                color: isDark ? AppColors.darkCoral : AppColors.coral),
             tooltip: 'Cerrar sesión',
             onPressed: () => _confirmarLogout(context),
           ),
@@ -44,12 +45,12 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
         child: const Icon(Icons.person_add),
       ),
       body: usuarioState.cargando
-          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
+          ? const Center(child: CircularProgressIndicator())
           : usuarioState.error != null
           ? Center(
               child: Text(
                 'Error: ${usuarioState.error}',
-                style: TextStyle(color: colorScheme.error),
+                style: TextStyle(color: cs.error),
               ),
             )
           : RefreshIndicator(
@@ -57,7 +58,7 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                   ref.read(usuarioControllerProvider.notifier).cargar(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -65,8 +66,13 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(12),
+                        color: cs.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.darkInk200
+                              : AppColors.lightInk200,
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -74,7 +80,8 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                           _ResumenItem(
                             'Total',
                             usuarioState.todos.length.toString(),
-                            Colors.blue,
+                            isDark ? AppColors.darkJade : AppColors.brandJade,
+                            isDark ? AppColors.darkJade50 : AppColors.lightJade50,
                           ),
                           _ResumenItem(
                             'Activos',
@@ -82,7 +89,8 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                                 .where((u) => u.activo)
                                 .length
                                 .toString(),
-                            Colors.green,
+                            isDark ? AppColors.darkViolet : AppColors.violet,
+                            isDark ? AppColors.darkViolet50 : AppColors.violet50,
                           ),
                           _ResumenItem(
                             'Inactivos',
@@ -90,7 +98,8 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                                 .where((u) => !u.activo)
                                 .length
                                 .toString(),
-                            Colors.orange,
+                            isDark ? AppColors.darkAmber : AppColors.amber,
+                            isDark ? AppColors.darkAmber50 : AppColors.amber50,
                           ),
                         ],
                       ),
@@ -100,12 +109,15 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
 
                     if (usuarioState.asesoras.isNotEmpty) ...[
                       _SectionTitle(
-                        'Asesoras (${usuarioState.asesoras.length})',
+                        'ASESORAS (${usuarioState.asesoras.length})',
+                        cs: cs,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       ...usuarioState.asesoras.map(
                         (u) => _UsuarioCard(
                           usuario: u,
+                          isDark: isDark,
+                          cs: cs,
                           onTap: () => _mostrarOpcionesUsuario(context, u),
                         ),
                       ),
@@ -114,12 +126,15 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
 
                     if (usuarioState.cobradores.isNotEmpty) ...[
                       _SectionTitle(
-                        'Cobradores (${usuarioState.cobradores.length})',
+                        'COBRADORES (${usuarioState.cobradores.length})',
+                        cs: cs,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       ...usuarioState.cobradores.map(
                         (u) => _UsuarioCard(
                           usuario: u,
+                          isDark: isDark,
+                          cs: cs,
                           onTap: () => _mostrarOpcionesUsuario(context, u),
                         ),
                       ),
@@ -131,7 +146,7 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                           padding: const EdgeInsets.all(32),
                           child: Text(
                             'No hay usuarios registrados',
-                            style: textTheme.bodyMedium,
+                            style: TextStyle(color: cs.onSurfaceVariant),
                           ),
                         ),
                       ),
@@ -143,13 +158,27 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
   }
 
   void _mostrarOpcionesUsuario(BuildContext context, UsuarioModel usuario) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
+    final violetColor = isDark ? AppColors.darkViolet : AppColors.violet;
+    final violetBg = isDark ? AppColors.darkViolet50 : AppColors.violet50;
+    final initials = usuario.nombre.isNotEmpty
+        ? usuario.nombre.split(' ').take(2)
+            .map((e) => e.isNotEmpty ? e[0].toUpperCase() : '')
+            .join()
+        : '?';
+    final isAsesora = usuario.rol == RolUsuario.asesora;
+    final accentColor = isAsesora ? violetColor : jadeColor;
+    final accentBg = isAsesora ? violetBg : jadeBg;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Padding(
+      builder: (ctx) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -157,13 +186,21 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Text(
-                    FormatoHelper.iniciales(usuario.nombre),
-                    style: TextStyle(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: accentBg,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: TextStyle(
+                        color: accentColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ),
@@ -175,41 +212,45 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                       Text(
                         usuario.nombre,
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
                         ),
                       ),
                       Text(
-                        usuario.rol == RolUsuario.asesora
-                            ? 'Asesora'
-                            : 'Cobrador',
-                        style: Theme.of(context).textTheme.bodySmall,
+                        isAsesora ? 'Asesora' : 'Cobrador',
+                        style: TextStyle(
+                          color: cs.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const Divider(height: 28),
+            const Divider(height: 24),
 
-            // Toggle activo/inactivo
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(
                 usuario.activo
                     ? Icons.person_off_outlined
                     : Icons.person_outlined,
-                color: usuario.activo ? Colors.orange : Colors.green,
+                color: usuario.activo
+                    ? (isDark ? AppColors.darkAmber : AppColors.amber)
+                    : jadeColor,
               ),
               title: Text(
                 usuario.activo ? 'Desactivar usuario' : 'Activar usuario',
                 style: TextStyle(
-                  color: usuario.activo ? Colors.orange : Colors.green,
+                  color: usuario.activo
+                      ? (isDark ? AppColors.darkAmber : AppColors.amber)
+                      : jadeColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               onTap: () async {
-                Navigator.pop(context);
+                Navigator.pop(ctx);
                 await ref
                     .read(usuarioControllerProvider.notifier)
                     .toggleActivo(usuario);
@@ -227,44 +268,36 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
               },
             ),
 
-            // Asignar productos (solo asesoras)
             if (usuario.rol == RolUsuario.asesora)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Icons.inventory_2_outlined,
-                  color: colorScheme.primary,
-                ),
+                leading: Icon(Icons.inventory_2_outlined, color: violetColor),
                 title: Text(
                   'Asignar productos',
                   style: TextStyle(
-                    color: colorScheme.primary,
+                    color: violetColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   _mostrarAsignarProductos(context, usuario);
                 },
               ),
 
-            // Asignar tarjetas de cobro (solo cobradores)
             if (usuario.rol == RolUsuario.cobrador)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Icons.credit_card_outlined,
-                  color: colorScheme.tertiary,
-                ),
+                leading: Icon(Icons.credit_card_outlined, color: jadeColor),
                 title: Text(
                   'Asignar tarjetas',
                   style: TextStyle(
-                    color: colorScheme.tertiary,
+                    color: jadeColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -398,7 +431,7 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
                         ok ? 'Usuario creado' : 'Error al crear usuario',
                       ),
                       backgroundColor: ok
-                          ? Colors.green
+                          ? AppColors.brandJade
                           : Theme.of(context).colorScheme.error,
                     ),
                   );
@@ -415,18 +448,18 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
   Future<void> _confirmarLogout(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('¿Cerrar sesión?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             child: Text(
               'Cerrar sesión',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
             ),
           ),
         ],
@@ -442,15 +475,19 @@ class _AsesoresScreenState extends ConsumerState<AsesoresScreen> {
 
 class _SectionTitle extends StatelessWidget {
   final String text;
-  const _SectionTitle(this.text);
+  final ColorScheme cs;
+  const _SectionTitle(this.text, {required this.cs});
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: cs.onSurfaceVariant,
+        letterSpacing: 0.06,
+      ),
     );
   }
 }
@@ -459,28 +496,40 @@ class _ResumenItem extends StatelessWidget {
   final String label;
   final String valor;
   final Color color;
+  final Color bg;
 
-  const _ResumenItem(this.label, this.valor, this.color);
+  const _ResumenItem(this.label, this.valor, this.color, this.bg);
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(Icons.person, color: color, size: 20),
+          child: Center(
+            child: Text(
+              valor,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 6),
         Text(
-          valor,
-          style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-        Text(label, style: textTheme.bodySmall),
       ],
     );
   }
@@ -489,15 +538,32 @@ class _ResumenItem extends StatelessWidget {
 class _UsuarioCard extends StatelessWidget {
   final UsuarioModel usuario;
   final VoidCallback onTap;
+  final bool isDark;
+  final ColorScheme cs;
 
-  const _UsuarioCard({required this.usuario, required this.onTap});
+  const _UsuarioCard({
+    required this.usuario,
+    required this.onTap,
+    required this.isDark,
+    required this.cs,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final cardColor =
-        Theme.of(context).cardTheme.color ?? colorScheme.surface;
+    final isAsesora = usuario.rol == RolUsuario.asesora;
+    final accentColor = isAsesora
+        ? (isDark ? AppColors.darkViolet : AppColors.violet)
+        : (isDark ? AppColors.darkJade : AppColors.brandJade);
+    final accentBg = isAsesora
+        ? (isDark ? AppColors.darkViolet50 : AppColors.violet50)
+        : (isDark ? AppColors.darkJade50 : AppColors.lightJade50);
+    final initials = usuario.nombre.isNotEmpty
+        ? usuario.nombre
+            .split(' ')
+            .take(2)
+            .map((e) => e.isNotEmpty ? e[0].toUpperCase() : '')
+            .join()
+        : '?';
 
     return GestureDetector(
       onTap: onTap,
@@ -505,26 +571,36 @@ class _UsuarioCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(12),
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: usuario.activo
-                ? Colors.green.withValues(alpha: 0.3)
-                : colorScheme.outline.withValues(alpha: 0.3),
+            color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(isDark ? 40 : 6),
+              blurRadius: 1,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: colorScheme.primaryContainer,
-              child: Text(
-                usuario.nombre.isNotEmpty
-                    ? usuario.nombre[0].toUpperCase()
-                    : '?',
-                style: TextStyle(
-                  color: colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.bold,
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accentBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text(
+                  initials,
+                  style: TextStyle(
+                    color: accentColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             ),
@@ -538,8 +614,9 @@ class _UsuarioCard extends StatelessWidget {
                     children: [
                       Text(
                         usuario.nombre,
-                        style: textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14.5,
                         ),
                       ),
                       Container(
@@ -549,36 +626,51 @@ class _UsuarioCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: usuario.activo
-                              ? Colors.green.withValues(alpha: 0.15)
-                              : colorScheme.errorContainer,
+                              ? (isDark
+                                  ? AppColors.darkJade50
+                                  : AppColors.lightJade50)
+                              : (isDark
+                                  ? AppColors.darkCoral50
+                                  : AppColors.coral50),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           usuario.activo ? 'Activo' : 'Inactivo',
                           style: TextStyle(
                             color: usuario.activo
-                                ? Colors.green
-                                : colorScheme.error,
+                                ? (isDark
+                                    ? AppColors.darkJade
+                                    : AppColors.brandJade)
+                                : (isDark
+                                    ? AppColors.darkCoral
+                                    : AppColors.coral),
                             fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(usuario.email, style: textTheme.bodySmall),
+                  Text(
+                    usuario.email,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
                   Text(
                     usuario.telefono,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.primary,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: accentColor,
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant, size: 20),
+            Icon(Icons.more_vert, color: cs.onSurfaceVariant, size: 20),
           ],
         ),
       ),

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/tarjeta_model.dart';
 import '../providers.dart';
+import '../core/theme/app_theme.dart';
 import 'admin_nueva_venta_screen.dart';
+import 'venta_detalle_screen.dart';
 
 class AdminVentasScreen extends ConsumerStatefulWidget {
   const AdminVentasScreen({super.key});
@@ -14,7 +16,7 @@ class AdminVentasScreen extends ConsumerStatefulWidget {
 class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  String? _zonaFiltro; // null = todas las zonas
+  String? _zonaFiltro;
 
   @override
   void initState() {
@@ -107,7 +109,7 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
   }
 
   Future<void> _eliminarVenta(TarjetaModel tarjeta) async {
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -124,7 +126,7 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: colorScheme.error),
+            style: TextButton.styleFrom(foregroundColor: cs.error),
             child: const Text('Eliminar'),
           ),
         ],
@@ -148,16 +150,19 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
         return 'Vencida';
       case EstadoTarjeta.atrasada:
         return 'Atrasada';
+      case EstadoTarjeta.enDevolucion:
+        return 'En devolución';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(tarjetaControllerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
 
-    // Apply search + zone filter
     var ventas = state.tarjetas;
     if (_zonaFiltro != null) {
       ventas = ventas.where((t) => t.zona == _zonaFiltro).toList();
@@ -193,8 +198,8 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
                 children: [
                   Text(
                     'Ventas',
-                    style: textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   Container(
@@ -203,14 +208,15 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
+                      color: jadeBg,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${ventas.length}',
-                      style: textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.bold,
+                      style: TextStyle(
+                        color: jadeColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
                       ),
                     ),
                   ),
@@ -218,7 +224,6 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
               ),
               const SizedBox(height: 12),
 
-              // ── Filtros por zona ─────────────────────────────────────────
               SizedBox(
                 height: 36,
                 child: ListView(
@@ -227,16 +232,18 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
                     _ZonaChip(
                       label: 'Todas',
                       selected: _zonaFiltro == null,
-                      colorScheme: colorScheme,
+                      isDark: isDark,
+                      cs: cs,
                       onTap: () => setState(() => _zonaFiltro = null),
                     ),
                     ...kZonas.map(
                       (z) => _ZonaChip(
                         label: z,
                         selected: _zonaFiltro == z,
-                        colorScheme: colorScheme,
-                        onTap: () =>
-                            setState(() => _zonaFiltro = _zonaFiltro == z ? null : z),
+                        isDark: isDark,
+                        cs: cs,
+                        onTap: () => setState(
+                            () => _zonaFiltro = _zonaFiltro == z ? null : z),
                       ),
                     ),
                   ],
@@ -263,14 +270,7 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: _buildBody(
-                  context,
-                  state.cargando,
-                  state.error,
-                  ventas,
-                  colorScheme,
-                  textTheme,
-                ),
+                child: _buildBody(context, state.cargando, state.error, ventas, isDark, cs),
               ),
             ],
           ),
@@ -284,13 +284,11 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
     bool cargando,
     String? error,
     List<TarjetaModel> ventas,
-    ColorScheme colorScheme,
-    TextTheme textTheme,
+    bool isDark,
+    ColorScheme cs,
   ) {
     if (cargando && ventas.isEmpty) {
-      return Center(
-        child: CircularProgressIndicator(color: colorScheme.primary),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (error != null && ventas.isEmpty) {
@@ -298,14 +296,15 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, color: colorScheme.error, size: 48),
+            Icon(Icons.error_outline, color: cs.error, size: 48),
             const SizedBox(height: 16),
             Text(
               'Error al cargar ventas',
-              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
             ),
             const SizedBox(height: 8),
-            Text(error, textAlign: TextAlign.center, style: textTheme.bodySmall),
+            Text(error, textAlign: TextAlign.center,
+                style: TextStyle(color: cs.onSurfaceVariant)),
             const SizedBox(height: 20),
             OutlinedButton.icon(
               onPressed: () =>
@@ -323,17 +322,25 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              color: colorScheme.onSurfaceVariant,
-              size: 48,
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkInk100 : AppColors.lightInk100,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(
+                Icons.receipt_long_outlined,
+                color: cs.onSurfaceVariant,
+                size: 26,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
               _query.isNotEmpty
                   ? 'Sin resultados para "$_query"'
                   : 'No hay ventas registradas',
-              style: textTheme.bodyMedium,
+              style: TextStyle(color: cs.onSurfaceVariant),
             ),
           ],
         ),
@@ -341,7 +348,6 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
     }
 
     return RefreshIndicator(
-      color: colorScheme.primary,
       onRefresh: () async =>
           ref.read(tarjetaControllerProvider.notifier).cargarTodas(),
       child: ListView.builder(
@@ -350,8 +356,16 @@ class _AdminVentasScreenState extends ConsumerState<AdminVentasScreen> {
           final venta = ventas[i];
           return _VentaCard(
             venta: venta,
+            isDark: isDark,
+            cs: cs,
             onEdit: () => _editarVenta(venta),
             onDelete: () => _eliminarVenta(venta),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => VentaDetalleScreen(tarjeta: venta),
+              ),
+            ),
           );
         },
       ),
@@ -364,57 +378,81 @@ class _VentaCard extends StatelessWidget {
   final TarjetaModel venta;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onTap;
+  final bool isDark;
+  final ColorScheme cs;
 
   const _VentaCard({
     required this.venta,
     required this.onEdit,
     required this.onDelete,
+    required this.onTap,
+    required this.isDark,
+    required this.cs,
   });
 
-  Color _estadoColor(EstadoTarjeta e, ColorScheme cs) {
+  (Color, Color, String) _estadoStyle(EstadoTarjeta e) {
     switch (e) {
       case EstadoTarjeta.activa:
-        return cs.primary;
+        return (
+          isDark ? AppColors.darkViolet : AppColors.violet,
+          isDark ? AppColors.darkViolet50 : AppColors.violet50,
+          'Activa',
+        );
       case EstadoTarjeta.pagada:
-        return Colors.green;
+        return (
+          isDark ? AppColors.darkJade : AppColors.brandJade,
+          isDark ? AppColors.darkJade50 : AppColors.lightJade50,
+          'Pagada',
+        );
       case EstadoTarjeta.vencida:
-        return cs.error;
+        return (
+          isDark ? AppColors.darkCoral : AppColors.coral,
+          isDark ? AppColors.darkCoral50 : AppColors.coral50,
+          'Vencida',
+        );
       case EstadoTarjeta.atrasada:
-        return Colors.orange;
-    }
-  }
-
-  String _labelEstado(EstadoTarjeta e) {
-    switch (e) {
-      case EstadoTarjeta.activa:
-        return 'Activa';
-      case EstadoTarjeta.pagada:
-        return 'Pagada';
-      case EstadoTarjeta.vencida:
-        return 'Vencida';
-      case EstadoTarjeta.atrasada:
-        return 'Atrasada';
+        return (
+          isDark ? AppColors.darkAmber : AppColors.amber,
+          isDark ? AppColors.darkAmber50 : AppColors.amber50,
+          'Atrasada',
+        );
+      case EstadoTarjeta.enDevolucion:
+        return (
+          isDark ? AppColors.darkViolet : AppColors.violet,
+          isDark ? AppColors.darkViolet50 : AppColors.violet50,
+          'En devolución',
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final cardColor = Theme.of(context).cardTheme.color ?? colorScheme.surface;
-    final estadoColor = _estadoColor(venta.estado, colorScheme);
+    final (estadoColor, estadoBg, estadoLabel) = _estadoStyle(venta.estado);
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
 
     final fecha =
         '${venta.fechaVenta.day.toString().padLeft(2, '0')}/'
         '${venta.fechaVenta.month.toString().padLeft(2, '0')}/'
         '${venta.fechaVenta.year}';
 
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.darkInk200 : AppColors.lightInk200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 40 : 6),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -426,8 +464,9 @@ class _VentaCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     venta.nombreCliente,
-                    style: textTheme.bodyLarge?.copyWith(
+                    style: const TextStyle(
                       fontWeight: FontWeight.w700,
+                      fontSize: 14.5,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -435,18 +474,19 @@ class _VentaCard extends StatelessWidget {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+                    horizontal: 9,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: estadoColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
+                    color: estadoBg,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    _labelEstado(venta.estado),
-                    style: textTheme.labelSmall?.copyWith(
+                    estadoLabel,
+                    style: TextStyle(
                       color: estadoColor,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -454,7 +494,7 @@ class _VentaCard extends StatelessWidget {
                 PopupMenuButton<String>(
                   icon: Icon(
                     Icons.more_vert,
-                    color: colorScheme.onSurfaceVariant,
+                    color: cs.onSurfaceVariant,
                     size: 20,
                   ),
                   onSelected: (v) {
@@ -472,20 +512,15 @@ class _VentaCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            'Eliminar',
-                            style: TextStyle(color: Colors.red),
-                          ),
+                          Icon(Icons.delete_outline, size: 18,
+                              color: AppColors.coral),
+                          const SizedBox(width: 10),
+                          Text('Eliminar',
+                              style: TextStyle(color: AppColors.coral)),
                         ],
                       ),
                     ),
@@ -496,44 +531,33 @@ class _VentaCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(
-                  Icons.person_outline,
-                  size: 14,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                Icon(Icons.person_outline, size: 14, color: cs.onSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(
                   venta.nombreAsesora,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                 ),
                 const Spacer(),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 13,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                Icon(Icons.calendar_today_outlined,
+                    size: 13, color: cs.onSurfaceVariant),
                 const SizedBox(width: 4),
-                Text(fecha, style: textTheme.bodySmall),
+                Text(fecha, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(
-                  Icons.phone_outlined,
-                  size: 14,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                Icon(Icons.phone_outlined, size: 14, color: cs.onSurfaceVariant),
                 const SizedBox(width: 4),
-                Text(venta.telefonoCliente, style: textTheme.bodySmall),
+                Text(venta.telefonoCliente,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                 const Spacer(),
                 Text(
                   '\$${venta.totalVenta.toStringAsFixed(0)}',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w800,
+                  style: TextStyle(
+                    color: jadeColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
                   ),
                 ),
               ],
@@ -542,17 +566,14 @@ class _VentaCard extends StatelessWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Icon(
-                    Icons.map_outlined,
-                    size: 14,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  Icon(Icons.map_outlined, size: 14, color: cs.onSurfaceVariant),
                   const SizedBox(width: 4),
                   Text(
                     venta.zona,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.primary,
+                    style: TextStyle(
+                      color: jadeColor,
                       fontWeight: FontWeight.w600,
+                      fontSize: 12,
                     ),
                   ),
                   if (venta.descripcion != null) ...[
@@ -560,9 +581,8 @@ class _VentaCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         venta.descripcion!,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                        style: TextStyle(
+                            fontSize: 12, color: cs.onSurfaceVariant),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -575,23 +595,22 @@ class _VentaCard extends StatelessWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Icon(
-                    Icons.payments_outlined,
-                    size: 14,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  Icon(Icons.payments_outlined,
+                      size: 14, color: cs.onSurfaceVariant),
                   const SizedBox(width: 4),
                   Text(
                     '${venta.numCuotas} cuotas · \$${venta.montoCuota.toStringAsFixed(0)} c/u',
-                    style: textTheme.bodySmall,
+                    style:
+                        TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   const Spacer(),
                   Text(
                     'Saldo: \$${venta.saldoPendiente.toStringAsFixed(0)}',
-                    style: textTheme.bodySmall?.copyWith(
+                    style: TextStyle(
+                      fontSize: 12,
                       color: venta.saldoPendiente > 0
-                          ? colorScheme.error
-                          : Colors.green,
+                          ? (isDark ? AppColors.darkCoral : AppColors.coral)
+                          : (isDark ? AppColors.darkJade : AppColors.brandJade),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -601,6 +620,7 @@ class _VentaCard extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
@@ -610,17 +630,22 @@ class _ZonaChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  final ColorScheme colorScheme;
+  final bool isDark;
+  final ColorScheme cs;
 
   const _ZonaChip({
     required this.label,
     required this.selected,
     required this.onTap,
-    required this.colorScheme,
+    required this.isDark,
+    required this.cs,
   });
 
   @override
   Widget build(BuildContext context) {
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -628,17 +653,21 @@ class _ZonaChip extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? colorScheme.primary : colorScheme.surfaceContainerHighest,
+          color: selected
+              ? jadeBg
+              : (isDark ? AppColors.darkInk100 : AppColors.lightInk100),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+            color: selected
+                ? jadeColor
+                : (isDark ? AppColors.darkInk200 : AppColors.lightInk200),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+            color: selected ? jadeColor : cs.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13,
           ),
         ),

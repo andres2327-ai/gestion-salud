@@ -1,9 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/usuario_model.dart';
 import '../models/producto_model.dart';
+import '../core/theme/app_theme.dart';
+import '../core/utils/app_snackbar.dart';
 
 class AdminAsignarProductosScreen extends ConsumerStatefulWidget {
   final UsuarioModel asesora;
@@ -27,9 +29,7 @@ class _AdminAsignarProductosScreenState
   void initState() {
     super.initState();
     Future.microtask(() {
-      // Cargar inventario disponible
       ref.read(productoControllerProvider.notifier).cargar();
-      // ✅ FIX: cargar asignaciones existentes de esta asesora
       ref
           .read(asignacionProductoControllerProvider.notifier)
           .escucharAsignaciones(widget.asesora.uid);
@@ -91,19 +91,18 @@ class _AdminAsignarProductosScreenState
     }
   }
 
-  void _snack(String msg, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: error ? Colors.red : Colors.green,
-      ),
-    );
-  }
+  void _snack(String msg, {bool error = false}) =>
+      appSnackbar(context, msg, error: error);
 
   @override
   Widget build(BuildContext context) {
     final productoState = ref.watch(productoControllerProvider);
     final asigState = ref.watch(asignacionProductoControllerProvider);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+    final jadeBg = isDark ? AppColors.darkJade50 : AppColors.lightJade50;
+    final borderColor = isDark ? AppColors.darkInk200 : AppColors.lightInk200;
 
     final productosDisponibles = productoState.productos
         .where((p) => p.activo && p.cantidadStock > 0)
@@ -111,72 +110,68 @@ class _AdminAsignarProductosScreenState
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Asignar Productos',
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
+            const Text('Asignar Productos', style: TextStyle(fontSize: 16)),
             Text(
               widget.asesora.nombre,
-              style: const TextStyle(color: Colors.tealAccent, fontSize: 12),
+              style: TextStyle(color: jadeColor, fontSize: 12),
             ),
           ],
         ),
-        elevation: 0,
       ),
       body: productoState.cargando
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.tealAccent),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
                 // Selector de producto
-                const _Label('PRODUCTO DEL INVENTARIO'),
+                Text(
+                  'PRODUCTO DEL INVENTARIO',
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.06,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 productosDisponibles.isEmpty
                     ? Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A1C3A),
-                          borderRadius: BorderRadius.circular(12),
+                          color: cs.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: borderColor),
                         ),
-                        child: const Text(
+                        child: Text(
                           'No hay productos con stock disponible',
-                          style: TextStyle(color: Colors.grey),
+                          style: TextStyle(color: cs.onSurfaceVariant),
                           textAlign: TextAlign.center,
                         ),
                       )
                     : Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A1C3A),
-                          borderRadius: BorderRadius.circular(12),
+                          color: cs.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: borderColor),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<ProductoModel>(
                             isExpanded: true,
-                            dropdownColor: const Color(0xFF1A1C3A),
                             value: _productoSeleccionado,
-                            hint: const Text(
+                            hint: Text(
                               'Selecciona un producto...',
-                              style: TextStyle(color: Colors.grey),
+                              style: TextStyle(color: cs.onSurfaceVariant),
                             ),
                             items: productosDisponibles.map((p) {
                               return DropdownMenuItem(
                                 value: p,
                                 child: Text(
                                   '${p.nombre}  ·  Stock: ${p.cantidadStock}  ·  \$${fmt.format(p.precioUnitario)}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                  ),
+                                  style: const TextStyle(fontSize: 13),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               );
@@ -195,26 +190,17 @@ class _AdminAsignarProductosScreenState
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.tealAccent.withAlpha(20),
+                      color: jadeBg,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.tealAccent.withAlpha(60),
-                      ),
+                      border: Border.all(color: jadeColor.withAlpha(60)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.info_outline,
-                          color: Colors.tealAccent,
-                          size: 16,
-                        ),
+                        Icon(Icons.info_outline, color: jadeColor, size: 16),
                         const SizedBox(width: 8),
                         Text(
                           'Stock disponible: ${_productoSeleccionado!.cantidadStock} unidades',
-                          style: const TextStyle(
-                            color: Colors.tealAccent,
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: jadeColor, fontSize: 13),
                         ),
                       ],
                     ),
@@ -223,69 +209,74 @@ class _AdminAsignarProductosScreenState
 
                 const SizedBox(height: 20),
 
-                // Cantidad
-                const _Label('CANTIDAD A ASIGNAR'),
+                Text(
+                  'CANTIDAD A ASIGNAR',
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.06,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _cantCtrl,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white, fontSize: 18),
                   textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    hintText: '0',
-                    hintStyle: const TextStyle(color: Colors.grey),
-                    filled: true,
-                    fillColor: const Color(0xFF1A1C3A),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.tealAccent),
-                    ),
-                  ),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  decoration: const InputDecoration(hintText: '0'),
                 ),
 
                 const SizedBox(height: 28),
 
-                // Botón asignar
-                GestureDetector(
-                  onTap: _guardando ? null : _asignar,
-                  child: Container(
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: _guardando ? Colors.grey : Colors.tealAccent,
-                      borderRadius: BorderRadius.circular(14),
+                SizedBox(
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: _guardando ? null : _asignar,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: jadeColor,
+                      foregroundColor: isDark ? AppColors.darkBg : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
-                    child: Center(
-                      child: _guardando
-                          ? const CircularProgressIndicator(color: Colors.black)
-                          : const Text(
-                              'Asignar Producto',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                    child: _guardando
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
                             ),
-                    ),
+                          )
+                        : const Text(
+                            'Asignar Producto',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
 
                 const SizedBox(height: 32),
 
-                // Productos ya asignados a esta asesora
-                const _Label('PRODUCTOS YA ASIGNADOS'),
+                Text(
+                  'PRODUCTOS YA ASIGNADOS',
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.06,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 if (asigState.cargando)
-                  const Center(
-                    child: CircularProgressIndicator(color: Colors.tealAccent),
-                  )
+                  const Center(child: CircularProgressIndicator())
                 else if (asigState.asignaciones.isEmpty)
-                  const Text(
+                  Text(
                     'Ninguno aún',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: cs.onSurfaceVariant),
                   )
                 else
                   ...asigState.asignaciones.map((a) {
@@ -293,8 +284,16 @@ class _AdminAsignarProductosScreenState
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A1C3A),
-                        borderRadius: BorderRadius.circular(12),
+                        color: cs.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: borderColor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(isDark ? 40 : 6),
+                            blurRadius: 1,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -302,8 +301,8 @@ class _AdminAsignarProductosScreenState
                           Expanded(
                             child: Text(
                               a.nombreProducto,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: cs.onSurface,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -313,22 +312,22 @@ class _AdminAsignarProductosScreenState
                             children: [
                               Text(
                                 'Asignados: ${a.cantidadAsignada}',
-                                style: const TextStyle(
-                                  color: Colors.grey,
+                                style: TextStyle(
+                                  color: cs.onSurfaceVariant,
                                   fontSize: 12,
                                 ),
                               ),
                               Text(
                                 'Vendidos: ${a.cantidadVendida}',
-                                style: const TextStyle(
-                                  color: Colors.grey,
+                                style: TextStyle(
+                                  color: cs.onSurfaceVariant,
                                   fontSize: 12,
                                 ),
                               ),
                               Text(
                                 'Disponibles: ${a.cantidadDisponible}',
-                                style: const TextStyle(
-                                  color: Colors.tealAccent,
+                                style: TextStyle(
+                                  color: jadeColor,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -341,24 +340,6 @@ class _AdminAsignarProductosScreenState
                   }),
               ],
             ),
-    );
-  }
-}
-
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: Colors.tealAccent,
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.2,
-      ),
     );
   }
 }

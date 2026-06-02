@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../core/theme/app_theme.dart';
 
 class BarcodeScannerScreen extends StatefulWidget {
   const BarcodeScannerScreen({super.key});
@@ -95,7 +96,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1C3A),
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: const Text('Escanear Código de Barras'),
         actions: [
@@ -106,7 +107,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
               child: Icon(
                 _flashOn ? Icons.flash_on : Icons.flash_off,
                 key: ValueKey(_flashOn),
-                color: _flashOn ? Colors.amber : Colors.white,
+                color: _flashOn ? AppColors.amber : Colors.white,
               ),
             ),
             onPressed: _toggleFlash,
@@ -148,46 +149,59 @@ class _PermissionDeniedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Escanear Código'),
-        backgroundColor: const Color(0xFF1A1C3A),
-        foregroundColor: Colors.white,
-      ),
-      backgroundColor: const Color(0xFF0F1123),
+      appBar: AppBar(title: const Text('Escanear Código')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              const Text(
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkInk100 : AppColors.lightInk100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.camera_alt_outlined,
+                  size: 30,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
                 'Permiso de cámara requerido',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Para escanear el código de barras de los productos '
                 'necesitamos acceso a la cámara.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: onOpenSettings,
-                icon: const Icon(Icons.settings),
+                icon: const Icon(Icons.settings, size: 18),
                 label: const Text('Abrir ajustes'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.tealAccent,
-                  foregroundColor: Colors.black,
+                  backgroundColor: jadeColor,
+                  foregroundColor: isDark ? AppColors.darkBg : Colors.white,
                   padding: const EdgeInsets.symmetric(
                       horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ],
@@ -230,7 +244,6 @@ class _ScanOverlayState extends State<_ScanOverlay>
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      // Rectángulo horizontal (más ancho que alto) para códigos de barras
       final w = constraints.maxWidth * 0.75;
       const h = 140.0;
       final left = (constraints.maxWidth - w) / 2;
@@ -238,7 +251,6 @@ class _ScanOverlayState extends State<_ScanOverlay>
 
       return Stack(
         children: [
-          // Fondo semitransparente con hueco rectangular
           ColorFiltered(
             colorFilter: ColorFilter.mode(
               Colors.black.withValues(alpha: 0.55),
@@ -268,14 +280,12 @@ class _ScanOverlayState extends State<_ScanOverlay>
             ),
           ),
 
-          // Esquinas del recuadro
           Positioned(
             top: top,
             left: left,
             child: _CornerFrame(width: w, height: h),
           ),
 
-          // Línea roja animada (clásica de escáner de barras)
           Positioned(
             top: top,
             left: left,
@@ -293,11 +303,11 @@ class _ScanOverlayState extends State<_ScanOverlay>
                       child: Container(
                         height: 3,
                         decoration: BoxDecoration(
-                          color: Colors.tealAccent,
+                          color: AppColors.brandJade,
                           borderRadius: BorderRadius.circular(2),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.tealAccent.withValues(alpha: 0.6),
+                              color: AppColors.brandJade.withValues(alpha: 0.6),
                               blurRadius: 8,
                             ),
                           ],
@@ -324,7 +334,7 @@ class _CornerFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     const len = 22.0;
     const thick = 3.5;
-    const color = Colors.tealAccent;
+    const color = AppColors.brandJade;
     const r = Radius.circular(4);
 
     return SizedBox(
@@ -332,28 +342,24 @@ class _CornerFrame extends StatelessWidget {
       height: height,
       child: Stack(
         children: [
-          // Top-left
           Positioned(top: 0, left: 0,
               child: Container(width: len, height: thick,
                   decoration: const BoxDecoration(color: color, borderRadius: BorderRadius.only(topLeft: r)))),
           Positioned(top: 0, left: 0,
               child: Container(width: thick, height: len,
                   decoration: const BoxDecoration(color: color, borderRadius: BorderRadius.only(topLeft: r)))),
-          // Top-right
           Positioned(top: 0, right: 0,
               child: Container(width: len, height: thick,
                   decoration: const BoxDecoration(color: color, borderRadius: BorderRadius.only(topRight: r)))),
           Positioned(top: 0, right: 0,
               child: Container(width: thick, height: len,
                   decoration: const BoxDecoration(color: color, borderRadius: BorderRadius.only(topRight: r)))),
-          // Bottom-left
           Positioned(bottom: 0, left: 0,
               child: Container(width: len, height: thick,
                   decoration: const BoxDecoration(color: color, borderRadius: BorderRadius.only(bottomLeft: r)))),
           Positioned(bottom: 0, left: 0,
               child: Container(width: thick, height: len,
                   decoration: const BoxDecoration(color: color, borderRadius: BorderRadius.only(bottomLeft: r)))),
-          // Bottom-right
           Positioned(bottom: 0, right: 0,
               child: Container(width: len, height: thick,
                   decoration: const BoxDecoration(color: color, borderRadius: BorderRadius.only(bottomRight: r)))),

@@ -3,6 +3,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import '../models/usuario_model.dart';
 
 class AuthService {
@@ -28,9 +29,7 @@ class AuthService {
       throw Exception('No hay admin autenticado');
     }
 
-    final adminEmail = adminUser.email;
     final adminUid = adminUser.uid;
-    String? adminPassword;
 
     try {
       // Crear una instancia secundaria de Firebase
@@ -62,13 +61,12 @@ class AuthService {
 
       // Asegurarse de que el admin sigue autenticado
       if (_auth.currentUser?.uid != adminUid) {
-        // Si la sesión cambió, algo salió mal
-        print('⚠️ Advertencia: La sesión del admin cambió durante la creación');
+        debugPrint('⚠️ Advertencia: La sesión del admin cambió durante la creación');
       }
 
       return nuevoUid;
     } catch (e) {
-      print('❌ Error al crear usuario: $e');
+      debugPrint('❌ Error al crear usuario: $e');
       rethrow;
     }
   }
@@ -86,8 +84,17 @@ class AuthService {
     await _auth.signOut();
   }
 
-  // Obtener perfil del usuario autenticado
+  // Obtener perfil del usuario autenticado (cache-first para rapidez y offline)
   Future<UsuarioModel?> obtenerPerfil(String uid) async {
+    try {
+      final cached = await _db
+          .collection('usuarios')
+          .doc(uid)
+          .get(const GetOptions(source: Source.cache));
+      if (cached.exists) return UsuarioModel.fromMap(cached.data()!, cached.id);
+    } catch (_) {
+      // Sin caché — continúa con el servidor
+    }
     final doc = await _db.collection('usuarios').doc(uid).get();
     if (!doc.exists) return null;
     return UsuarioModel.fromMap(doc.data()!, doc.id);
