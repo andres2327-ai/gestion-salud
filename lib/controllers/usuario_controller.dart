@@ -52,17 +52,21 @@ class UsuarioController extends StateNotifier<UsuarioState> {
   Future<void> cargar() async {
     state = state.copyWith(cargando: true);
     try {
-      final asesoras = await _usuarioService.obtenerAsesoras();
-      final cobradores = await _usuarioService.obtenerCobradores();
-      final todos = await _usuarioService.obtenerTodos();
+      final results = await Future.wait([
+        _usuarioService.obtenerAsesoras(),
+        _usuarioService.obtenerCobradores(),
+        _usuarioService.obtenerTodos(),
+      ]).timeout(const Duration(seconds: 10));
+
       state = state.copyWith(
-        asesoras: asesoras,
-        cobradores: cobradores,
-        todos: todos,
+        asesoras: results[0],
+        cobradores: results[1],
+        todos: results[2],
         cargando: false,
       );
-    } catch (e) {
-      state = state.copyWith(cargando: false, error: e.toString());
+    } catch (_) {
+      // Sin conexión: mantiene la lista previa del caché si ya había datos.
+      state = state.copyWith(cargando: false);
     }
   }
 

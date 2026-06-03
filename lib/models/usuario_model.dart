@@ -57,6 +57,14 @@ class UsuarioModel {
     };
   }
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UsuarioModel && other.uid == uid;
+
+  @override
+  int get hashCode => uid.hashCode;
+
   UsuarioModel copyWith({
     String? nombre,
     String? telefono,

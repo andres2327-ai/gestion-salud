@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -42,7 +42,7 @@ class _AsesoraNuevaVentaScreenState
   final _searchCtrl = TextEditingController();
   String _busqueda = '';
   bool _guardando = false;
-  File? _foto;
+  XFile? _foto;
   bool _intentoRegistrar = false;
 
   final fmt = NumberFormat('#,###', 'es_CO');

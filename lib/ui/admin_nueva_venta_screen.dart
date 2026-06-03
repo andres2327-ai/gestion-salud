@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../providers.dart';
 import '../models/tarjeta_model.dart';
 import '../models/usuario_model.dart';
 import '../models/producto_model.dart';
 import '../core/theme/app_theme.dart';
-import 'dart:io';
 import '../core/utils/app_snackbar.dart';
 import 'widgets/shared_widgets.dart';
 import 'widgets/foto_picker.dart';
@@ -36,18 +36,10 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
   final Map<String, int> _cantidades = {};
   String _busqueda = '';
   bool _guardando = false;
-  File? _foto;
+  XFile? _foto;
   bool _intentoRegistrar = false;
 
   final fmt = NumberFormat('#,###', 'es_CO');
-
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() {
-      ref.read(usuarioControllerProvider.notifier).cargar();
-    });
-  }
 
   @override
   void dispose() {

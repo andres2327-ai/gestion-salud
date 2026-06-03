@@ -1,15 +1,14 @@
 // lib/ui/widgets/foto_picker.dart
-// Reusable photo picker: camera or gallery, with preview and permission handling.
 
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../core/theme/app_theme.dart';
 
 class FotoPickerTile extends StatefulWidget {
-  final File? valor;
-  final void Function(File? foto) onChanged;
+  final XFile? valor;
+  final void Function(XFile? foto) onChanged;
   final bool requerida;
   final bool mostrarError;
   final Color accentColor;
@@ -31,18 +30,32 @@ class FotoPickerTile extends StatefulWidget {
 
 class _FotoPickerTileState extends State<FotoPickerTile> {
   final _picker = ImagePicker();
+  Uint8List? _previewBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.valor != null) _loadPreview(widget.valor!);
+  }
+
+  @override
+  void didUpdateWidget(FotoPickerTile old) {
+    super.didUpdateWidget(old);
+    if (widget.valor != old.valor) {
+      if (widget.valor == null) {
+        setState(() => _previewBytes = null);
+      } else {
+        _loadPreview(widget.valor!);
+      }
+    }
+  }
+
+  Future<void> _loadPreview(XFile xFile) async {
+    final bytes = await xFile.readAsBytes();
+    if (mounted) setState(() => _previewBytes = bytes);
+  }
 
   Future<void> _tomarFoto() async {
-    final status = await Permission.camera.request();
-    if (!status.isGranted) {
-      if (mounted) {
-        _mostrarDialogoPermiso(
-          'Sin permiso de cámara',
-          'Activa el permiso de cámara en los ajustes de la app para poder tomar fotos.',
-        );
-      }
-      return;
-    }
     final xFile = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 70,
@@ -50,13 +63,15 @@ class _FotoPickerTileState extends State<FotoPickerTile> {
       maxHeight: 1024,
     );
     if (xFile != null && mounted) {
-      widget.onChanged(File(xFile.path));
+      final bytes = await xFile.readAsBytes();
+      if (mounted) {
+        setState(() => _previewBytes = bytes);
+        widget.onChanged(xFile);
+      }
     }
   }
 
   Future<void> _elegirGaleria() async {
-    // Android 13+ no necesita permiso explícito para el photo picker del sistema
-    // En versiones anteriores, image_picker maneja el acceso internamente
     final xFile = await _picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 70,
@@ -64,13 +79,23 @@ class _FotoPickerTileState extends State<FotoPickerTile> {
       maxHeight: 1024,
     );
     if (xFile != null && mounted) {
-      widget.onChanged(File(xFile.path));
+      final bytes = await xFile.readAsBytes();
+      if (mounted) {
+        setState(() => _previewBytes = bytes);
+        widget.onChanged(xFile);
+      }
     }
   }
 
   void _mostrarOpciones() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
+
+    // En web, la cámara y la galería son la misma acción (file picker)
+    if (kIsWeb) {
+      _elegirGaleria();
+      return;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -136,29 +161,6 @@ class _FotoPickerTileState extends State<FotoPickerTile> {
     );
   }
 
-  void _mostrarDialogoPermiso(String titulo, String mensaje) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(titulo),
-        content: Text(mensaje),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              openAppSettings();
-            },
-            child: const Text('Abrir ajustes'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -169,7 +171,6 @@ class _FotoPickerTileState extends State<FotoPickerTile> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Preview o placeholder ─────────────────────────────────────────
         GestureDetector(
           onTap: _mostrarOpciones,
           child: Container(
@@ -194,19 +195,26 @@ class _FotoPickerTileState extends State<FotoPickerTile> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(13),
-                        child: Image.file(
-                          foto,
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                        ),
+                        child: _previewBytes != null
+                            ? Image.memory(
+                                _previewBytes!,
+                                width: double.infinity,
+                                height: 200,
+                                fit: BoxFit.cover,
+                              )
+                            : const SizedBox(
+                                height: 200,
+                                child: Center(child: CircularProgressIndicator()),
+                              ),
                       ),
-                      // Remove button
                       Positioned(
                         top: 8,
                         right: 8,
                         child: GestureDetector(
-                          onTap: () => widget.onChanged(null),
+                          onTap: () {
+                            setState(() => _previewBytes = null);
+                            widget.onChanged(null);
+                          },
                           child: Container(
                             width: 32,
                             height: 32,
@@ -222,7 +230,6 @@ class _FotoPickerTileState extends State<FotoPickerTile> {
                           ),
                         ),
                       ),
-                      // Change overlay
                       Positioned(
                         bottom: 8,
                         right: 8,
@@ -299,8 +306,6 @@ class _FotoPickerTileState extends State<FotoPickerTile> {
                   ),
           ),
         ),
-
-        // ── Mensaje de error ──────────────────────────────────────────────
         if (hayError)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),

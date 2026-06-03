@@ -26,31 +26,40 @@ class UsuarioService {
         );
   }
 
-  // Obtener lista de asesoras (todas, sin filtro de activo)
+  Future<List<UsuarioModel>> _getWithCacheFallback(
+    Query<Map<String, dynamic>> query,
+  ) async {
+    try {
+      final snap = await query.get().timeout(const Duration(seconds: 8));
+      return snap.docs.map((d) => UsuarioModel.fromMap(d.data(), d.id)).toList();
+    } catch (_) {
+      try {
+        final snap = await query.get(const GetOptions(source: Source.cache));
+        return snap.docs.map((d) => UsuarioModel.fromMap(d.data(), d.id)).toList();
+      } catch (_) {
+        return [];
+      }
+    }
+  }
+
   Future<List<UsuarioModel>> obtenerAsesoras() async {
-    final snap = await _col
-        .where('rol', isEqualTo: RolUsuario.asesora.name)
-        .get();
-    return snap.docs.map((d) => UsuarioModel.fromMap(d.data(), d.id)).toList();
+    return _getWithCacheFallback(
+      _col.where('rol', isEqualTo: RolUsuario.asesora.name),
+    );
   }
 
-  // Obtener lista de cobradores (todos, sin filtro de activo)
   Future<List<UsuarioModel>> obtenerCobradores() async {
-    final snap = await _col
-        .where('rol', isEqualTo: RolUsuario.cobrador.name)
-        .get();
-    return snap.docs.map((d) => UsuarioModel.fromMap(d.data(), d.id)).toList();
+    return _getWithCacheFallback(
+      _col.where('rol', isEqualTo: RolUsuario.cobrador.name),
+    );
   }
 
-  // Obtener todos los usuarios (admin ve asesoras + cobradores, sin admins)
   Future<List<UsuarioModel>> obtenerTodos() async {
-    final snap = await _col.orderBy('fecha_creacion', descending: true).get();
-    return snap.docs
-        .map((d) => UsuarioModel.fromMap(d.data(), d.id))
-        .where(
-          (u) =>
-              u.rol == RolUsuario.asesora || u.rol == RolUsuario.cobrador,
-        )
+    final todos = await _getWithCacheFallback(
+      _col.orderBy('fecha_creacion', descending: true),
+    );
+    return todos
+        .where((u) => u.rol == RolUsuario.asesora || u.rol == RolUsuario.cobrador)
         .toList();
   }
 

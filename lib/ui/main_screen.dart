@@ -30,6 +30,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   int _selectedIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Precarga usuarios una sola vez al autenticarse para que
+    // estén disponibles offline en cualquier pantalla.
+    Future.microtask(
+      () => ref.read(usuarioControllerProvider.notifier).cargar(),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final rol = ref.watch(rolActualProvider);
 

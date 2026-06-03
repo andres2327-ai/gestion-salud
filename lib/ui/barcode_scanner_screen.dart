@@ -1,11 +1,8 @@
 // lib/ui/barcode_scanner_screen.dart
-// Escáner de código de barras para el inventario de productos.
-// Soporta EAN-13, EAN-8, UPC-A, UPC-E, Code-128, Code-39, etc.
-// Al detectar, hace pop con el número escaneado como String.
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../core/theme/app_theme.dart';
 
 class BarcodeScannerScreen extends StatefulWidget {
@@ -27,27 +24,17 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
       BarcodeFormat.code128,
       BarcodeFormat.code39,
       BarcodeFormat.code93,
-      BarcodeFormat.itf,
+      BarcodeFormat.itf14,
     ],
   );
 
   bool _flashOn = false;
   bool _scanned = false;
-  bool _permissionDenied = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkPermission();
-  }
-
-  Future<void> _checkPermission() async {
-    final status = await Permission.camera.request();
-    if (!mounted) return;
-    if (status.isDenied || status.isPermanentlyDenied) {
-      setState(() => _permissionDenied = true);
-    }
   }
 
   @override
@@ -78,21 +65,13 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
   }
 
   Future<void> _toggleFlash() async {
+    if (kIsWeb) return;
     await _ctrl.toggleTorch();
     setState(() => _flashOn = !_flashOn);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_permissionDenied) {
-      return _PermissionDeniedView(
-        onOpenSettings: () {
-          openAppSettings();
-          Navigator.pop(context);
-        },
-      );
-    }
-
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -100,18 +79,19 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
         foregroundColor: Colors.white,
         title: const Text('Escanear Código de Barras'),
         actions: [
-          IconButton(
-            tooltip: _flashOn ? 'Apagar flash' : 'Encender flash',
-            icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                _flashOn ? Icons.flash_on : Icons.flash_off,
-                key: ValueKey(_flashOn),
-                color: _flashOn ? AppColors.amber : Colors.white,
+          if (!kIsWeb)
+            IconButton(
+              tooltip: _flashOn ? 'Apagar flash' : 'Encender flash',
+              icon: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  _flashOn ? Icons.flash_on : Icons.flash_off,
+                  key: ValueKey(_flashOn),
+                  color: _flashOn ? AppColors.amber : Colors.white,
+                ),
               ),
+              onPressed: _toggleFlash,
             ),
-            onPressed: _toggleFlash,
-          ),
         ],
       ),
       body: Stack(
@@ -137,76 +117,6 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Pantalla sin permiso ──────────────────────────────────────────────────────
-class _PermissionDeniedView extends StatelessWidget {
-  final VoidCallback onOpenSettings;
-  const _PermissionDeniedView({required this.onOpenSettings});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final jadeColor = isDark ? AppColors.darkJade : AppColors.brandJade;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Escanear Código')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkInk100 : AppColors.lightInk100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  Icons.camera_alt_outlined,
-                  size: 30,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Permiso de cámara requerido',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Para escanear el código de barras de los productos '
-                'necesitamos acceso a la cámara.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: onOpenSettings,
-                icon: const Icon(Icons.settings, size: 18),
-                label: const Text('Abrir ajustes'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: jadeColor,
-                  foregroundColor: isDark ? AppColors.darkBg : Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

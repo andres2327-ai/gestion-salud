@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,18 +18,21 @@ import 'controllers/auth_controller.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configurar orientacion preferida
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
+  if (!kIsWeb) {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  }
 
   // Inicializar datos de locale para que DateFormat('es_ES') funcione
   await initializeDateFormatting('es_ES', null);
@@ -73,14 +77,18 @@ class _RootRouteState extends ConsumerState<RootRoute>
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _splashListo = true);
     });
-    _verificarGps();
-    _serviceStatusSub = GpsService().streamServicioHabilitado().listen((habilitado) {
-      if (!habilitado && _gpsGranted == true) {
-        if (mounted) setState(() => _gpsGranted = false);
-      } else if (habilitado && _gpsGranted == false) {
-        _reintentarGps();
-      }
-    });
+    if (kIsWeb) {
+      _gpsGranted = true;
+    } else {
+      _verificarGps();
+      _serviceStatusSub = GpsService().streamServicioHabilitado().listen((habilitado) {
+        if (!habilitado && _gpsGranted == true) {
+          if (mounted) setState(() => _gpsGranted = false);
+        } else if (habilitado && _gpsGranted == false) {
+          _reintentarGps();
+        }
+      });
+    }
   }
 
   @override
@@ -117,11 +125,11 @@ class _RootRouteState extends ConsumerState<RootRoute>
       }
     });
 
-    if (!_splashListo || authState.cargando || _gpsGranted == null) {
+    if (!_splashListo || authState.cargando || (!kIsWeb && _gpsGranted == null)) {
       return const _SplashScreen();
     }
 
-    if (_gpsGranted == false) {
+    if (!kIsWeb && _gpsGranted == false) {
       return _GpsRequiredScreen(onRetry: _reintentarGps);
     }
 

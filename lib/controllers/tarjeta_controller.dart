@@ -1,8 +1,8 @@
 // lib/controllers/tarjeta_controller.dart
 
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/tarjeta_model.dart';
 import '../models/producto_model.dart';
 import '../models/asignacion_producto_model.dart';
@@ -215,7 +215,7 @@ class TarjetaController extends StateNotifier<TarjetaState> {
     required int numCuotas,
     required String zona,
     String? descripcion,
-    File? foto,
+    XFile? foto,
   }) async {
     if (state.carrito.isEmpty) {
       state = state.copyWith(error: 'Agrega al menos un producto.');
@@ -279,20 +279,24 @@ class TarjetaController extends StateNotifier<TarjetaState> {
         frecuenciaPago: frecuenciaPago,
       );
 
-      // Guardar en Firestore
+      // Guardar en Firestore (funciona offline gracias a persistencia local)
       final tarjetaId = await _tarjetaService.crearTarjeta(
         tarjeta: tarjeta,
         productos: productos,
         cuotas: cuotas,
       );
 
-      // Subir foto si existe
+      // Subir foto — no falla la venta si no hay internet;
+      // Storage no tiene cache offline, la foto se sube cuando haya conexión.
       if (foto != null) {
-        final fotoUrl = await _storageService.subirFotoTarjeta(
-          foto: foto,
-          tarjetaId: tarjetaId,
-        );
-        await _tarjetaService.actualizarFoto(tarjetaId, fotoUrl);
+        try {
+          final fotoUrl = await _storageService
+              .subirFotoTarjeta(foto: foto, tarjetaId: tarjetaId)
+              .timeout(const Duration(seconds: 30));
+          await _tarjetaService.actualizarFoto(tarjetaId, fotoUrl);
+        } catch (_) {
+          // La venta quedó guardada; la foto se podrá adjuntar después.
+        }
       }
 
       limpiarCarrito();

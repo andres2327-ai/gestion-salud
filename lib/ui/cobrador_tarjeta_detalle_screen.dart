@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -81,7 +81,7 @@ class _CobradorTarjetaDetalleScreenState
 
     final montoCtrl = TextEditingController();
     final obsCtrl = TextEditingController();
-    File? fotoCobro;
+    XFile? fotoCobro;
     bool intentoEnviar = false;
     bool subiendo = false;
 
