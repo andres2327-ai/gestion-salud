@@ -28,6 +28,7 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
   final _direccionCtrl = TextEditingController();
   final _descripcionCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
+  final _pagoInicialCtrl = TextEditingController();
 
   UsuarioModel? _asesoraSeleccionada;
   String? _zona;
@@ -48,6 +49,7 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
     _direccionCtrl.dispose();
     _descripcionCtrl.dispose();
     _searchCtrl.dispose();
+    _pagoInicialCtrl.dispose();
     super.dispose();
   }
 
@@ -59,7 +61,13 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
     });
   }
 
-  double get _montoCuota => _numCuotas > 0 ? _subtotal / _numCuotas : 0;
+  double get _pagoInicial =>
+      double.tryParse(_pagoInicialCtrl.text.replaceAll(',', '.')) ?? 0;
+
+  double get _saldoAFinanciar =>
+      (_subtotal - _pagoInicial).clamp(0.0, double.infinity);
+
+  double get _montoCuota => _numCuotas > 0 ? _saldoAFinanciar / _numCuotas : 0;
 
   bool get _tieneProductos => _cantidades.values.any((q) => q > 0);
 
@@ -104,6 +112,7 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
       frecuenciaPago: _frecuencia,
       numCuotas: _numCuotas,
       zona: _zona!,
+      pagoInicial: _pagoInicial,
       descripcion: _descripcionCtrl.text.trim().isEmpty
           ? null
           : _descripcionCtrl.text.trim(),
@@ -449,9 +458,42 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
               }).toList(),
             ),
 
+            const SizedBox(height: 20),
+
+            // ── Pago inicial ─────────────────────────────────────────────────
+            const SectionHeader(
+              icon: Icons.payments_outlined,
+              label: 'PAGO INICIAL (OPCIONAL)',
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _pagoInicialCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+              ],
+              decoration: InputDecoration(
+                hintText: '0',
+                prefixIcon: const Icon(Icons.attach_money_outlined, size: 20),
+                prefixText: '\$ ',
+                helperText: 'Abono que el cliente paga al momento de la venta',
+                helperStyle: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              ),
+              onChanged: (_) => setState(() {}),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null;
+                final val = double.tryParse(v.replaceAll(',', '.'));
+                if (val == null || val < 0) return 'Valor inválido';
+                if (val >= _subtotal && _subtotal > 0) {
+                  return 'La inicial no puede cubrir el total';
+                }
+                return null;
+              },
+            ),
+
             const SizedBox(height: 24),
 
-            // ── Resumen ─────────────────���────────────────────────────���───────
+            // ── Resumen ──────────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -466,13 +508,41 @@ class _AdminNuevaVentaScreenState extends ConsumerState<AdminNuevaVentaScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Total:', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+                      Text('Total venta:', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
                       Text(
                         '\$${fmt.format(_subtotal)}',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ],
                   ),
+                  if (_pagoInicial > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Pago inicial:', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+                        Text(
+                          '- \$${fmt.format(_pagoInicial)}',
+                          style: TextStyle(
+                            color: isDark ? AppColors.darkAmber : AppColors.amber,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Saldo a financiar:', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+                        Text(
+                          '\$${fmt.format(_saldoAFinanciar)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

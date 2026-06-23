@@ -8,6 +8,7 @@ import '../providers.dart';
 import '../controllers/dashboard_controller.dart';
 import '../utils/formato_helper.dart';
 import '../core/theme/app_theme.dart';
+import 'reporte_quincena_screen.dart';
 
 class ReportesScreen extends ConsumerStatefulWidget {
   const ReportesScreen({super.key});
@@ -206,6 +207,77 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                     ],
 
                     const SizedBox(height: 24),
+
+                    // Reporte personal por trabajador
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ReporteQuincenaScreen(),
+                        ),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.darkViolet50
+                              : AppColors.violet50,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: violetColor,
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: violetColor.withAlpha(30),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.picture_as_pdf_outlined,
+                                color: violetColor,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Reporte Personal por Trabajador',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: violetColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'PDF de quincena por asesora o cobrador',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? AppColors.darkInk500
+                                          : AppColors.lightInk500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_ios,
+                                size: 16, color: violetColor),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
 
                     SizedBox(
                       width: double.infinity,

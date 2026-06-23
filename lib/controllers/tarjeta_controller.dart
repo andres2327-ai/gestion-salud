@@ -214,6 +214,7 @@ class TarjetaController extends StateNotifier<TarjetaState> {
     required FrecuenciaPago frecuenciaPago,
     required int numCuotas,
     required String zona,
+    double pagoInicial = 0,
     String? descripcion,
     XFile? foto,
   }) async {
@@ -231,9 +232,10 @@ class TarjetaController extends StateNotifier<TarjetaState> {
       final lng = posicion?.longitude ?? 0;
 
       final totalVenta = state.totalCarrito;
+      final saldoAFinanciar = totalVenta - pagoInicial;
       final montoCuota = tipoPago == TipoPago.cuotas && numCuotas > 0
-          ? totalVenta / numCuotas
-          : totalVenta;
+          ? saldoAFinanciar / numCuotas
+          : saldoAFinanciar;
 
       // Construir tarjeta
       final tarjeta = TarjetaModel(
@@ -250,8 +252,9 @@ class TarjetaController extends StateNotifier<TarjetaState> {
         numCuotas: tipoPago == TipoPago.contado ? 1 : numCuotas,
         montoCuota: montoCuota,
         totalVenta: totalVenta,
+        pagoInicial: pagoInicial,
         totalDevuelto: 0,
-        saldoPendiente: totalVenta,
+        saldoPendiente: saldoAFinanciar,
         estado: EstadoTarjeta.activa,
         fechaVenta: DateTime.now(),
         zona: zona,
@@ -272,7 +275,7 @@ class TarjetaController extends StateNotifier<TarjetaState> {
         );
       }).toList();
 
-      // Construir cuotas
+      // Construir cuotas (basadas en saldo a financiar, no en total bruto)
       final cuotas = _generarCuotas(
         numCuotas: tipoPago == TipoPago.contado ? 1 : numCuotas,
         montoCuota: montoCuota,

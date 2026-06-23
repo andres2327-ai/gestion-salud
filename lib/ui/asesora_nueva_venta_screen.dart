@@ -33,6 +33,7 @@ class _AsesoraNuevaVentaScreenState
   final _nombreCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
+  final _pagoInicialCtrl = TextEditingController();
 
   FrecuenciaPago _frecuencia = FrecuenciaPago.semanal;
   int _numCuotas = 4;
@@ -64,6 +65,7 @@ class _AsesoraNuevaVentaScreenState
     _direccionCtrl.dispose();
     _descripcionCtrl.dispose();
     _searchCtrl.dispose();
+    _pagoInicialCtrl.dispose();
     super.dispose();
   }
 
@@ -183,6 +185,11 @@ class _AsesoraNuevaVentaScreenState
       );
     }
 
+    final pagoInicialVal = double.tryParse(
+          _pagoInicialCtrl.text.replaceAll(',', '.'),
+        ) ??
+        0;
+
     final tarjetaId = await ctrl.crearVenta(
       asesoraUid: widget.asesoraUid,
       nombreAsesora: widget.asesoraNombre,
@@ -193,6 +200,7 @@ class _AsesoraNuevaVentaScreenState
       frecuenciaPago: _frecuencia,
       numCuotas: _numCuotas,
       zona: _zona!,
+      pagoInicial: pagoInicialVal,
       descripcion: _descripcionCtrl.text.trim().isEmpty
           ? null
           : _descripcionCtrl.text.trim(),
@@ -222,7 +230,9 @@ class _AsesoraNuevaVentaScreenState
   Widget build(BuildContext context) {
     final asignaciones = ref.watch(asignacionProductoControllerProvider).asignaciones;
     final subtotal = _calcSubtotal(asignaciones);
-    final montoCuota = _numCuotas > 0 ? subtotal / _numCuotas : 0.0;
+    final pagoInicial = double.tryParse(_pagoInicialCtrl.text.replaceAll(',', '.')) ?? 0;
+    final saldoAFinanciar = (subtotal - pagoInicial).clamp(0.0, double.infinity);
+    final montoCuota = _numCuotas > 0 ? saldoAFinanciar / _numCuotas : 0.0;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final violetColor = isDark ? AppColors.darkViolet : AppColors.violet;
@@ -598,6 +608,33 @@ class _AsesoraNuevaVentaScreenState
               }).toList(),
             ),
 
+            const SizedBox(height: 20),
+
+            const SectionLabel('PAGO INICIAL (OPCIONAL)'),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _pagoInicialCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+              ],
+              decoration: InputDecoration(
+                hintText: '0',
+                prefixIcon: const Icon(Icons.payments_outlined, size: 20),
+                prefixText: '\$ ',
+                helperText: 'Abono que el cliente paga al momento de la venta',
+                helperStyle: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              ),
+              onChanged: (_) => setState(() {}),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null;
+                final val = double.tryParse(v.replaceAll(',', '.'));
+                if (val == null || val < 0) return 'Valor inválido';
+                if (val >= subtotal && subtotal > 0) return 'La inicial no puede cubrir el total';
+                return null;
+              },
+            ),
+
             const SizedBox(height: 24),
 
             Container(
@@ -614,16 +651,37 @@ class _AsesoraNuevaVentaScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Subtotal:', style: TextStyle(color: cs.onSurfaceVariant)),
+                      Text('Total venta:', style: TextStyle(color: cs.onSurfaceVariant)),
                       Text(
                         '\$${fmt.format(subtotal)}',
-                        style: TextStyle(
-                          color: cs.onSurface,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
+                  if (pagoInicial > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Pago inicial:', style: TextStyle(color: cs.onSurfaceVariant)),
+                        Text(
+                          '- \$${fmt.format(pagoInicial)}',
+                          style: TextStyle(color: amberColor, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Saldo a financiar:', style: TextStyle(color: cs.onSurfaceVariant)),
+                        Text(
+                          '\$${fmt.format(saldoAFinanciar)}',
+                          style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

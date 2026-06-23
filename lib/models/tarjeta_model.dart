@@ -81,6 +81,7 @@ class TarjetaModel {
   final int numCuotas;
   final double montoCuota;
   final double totalVenta;
+  final double pagoInicial;
   final double totalDevuelto;
   final double saldoPendiente;
   final EstadoTarjeta estado;
@@ -104,6 +105,7 @@ class TarjetaModel {
     required this.numCuotas,
     required this.montoCuota,
     required this.totalVenta,
+    this.pagoInicial = 0,
     required this.totalDevuelto,
     required this.saldoPendiente,
     required this.estado,
@@ -148,6 +150,7 @@ class TarjetaModel {
       numCuotas: map['num_cuotas'] ?? 0,
       montoCuota: (map['monto_cuota'] ?? 0).toDouble(),
       totalVenta: (map['total_venta'] ?? 0).toDouble(),
+      pagoInicial: (map['pago_inicial'] ?? 0).toDouble(),
       totalDevuelto: (map['total_devuelto'] ?? 0).toDouble(),
       saldoPendiente: (map['saldo_pendiente'] ?? 0).toDouble(),
       estado: EstadoTarjeta.values.firstWhere(
@@ -178,6 +181,7 @@ class TarjetaModel {
       'num_cuotas': numCuotas,
       'monto_cuota': montoCuota,
       'total_venta': totalVenta,
+      'pago_inicial': pagoInicial,
       'total_devuelto': totalDevuelto,
       'saldo_pendiente': saldoPendiente,
       'estado': estado.name,
